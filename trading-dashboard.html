@@ -10,6 +10,7 @@
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js';
         import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js';
+        import { getFirestore, doc, setDoc, getDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js';
         
         const firebaseConfig = {
             apiKey: "AIzaSyDSDK0NfVSs_VQb3TnrixiJbOpTsmoUMvU",
@@ -22,10 +23,22 @@
         
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
+        const db = getFirestore(app);
         
+        // Activer Firebase avec authentification existante
+        window.firebaseDB = db;
+        window.firebaseAuth = auth;
+        
+        // Vérifier l'authentification existante
         onAuthStateChanged(auth, (user) => {
             if (!user) {
+                // Rediriger vers la page de connexion si pas connecté
                 window.location.href = 'index.html';
+            } else {
+                console.log('Utilisateur connecté:', user.email, user.uid);
+                // Définir l'utilisateur pour le dashboard
+                sessionStorage.setItem('firebaseUID', user.uid);
+                sessionStorage.setItem('userEmail', user.email);
             }
         });
     </script>
@@ -33,18 +46,23 @@
 </head>
 <body>
     <script>
-        // Initialisation directe sans authentification
+        // Initialisation avec utilisateur authentifié
         window.addEventListener('DOMContentLoaded', function() {
-            // Définir un utilisateur par défaut
-            if (!sessionStorage.getItem('currentUser')) {
-                sessionStorage.setItem('currentUser', 'trader_vip');
-                sessionStorage.setItem('authenticated', 'true');
-            }
-            
-            const currentUser = sessionStorage.getItem('currentUser');
-            if (currentUser) {
-                document.querySelector('header h1').innerHTML = `Dashboard Trading <span style="font-size: 0.6em; opacity: 0.7;">- ${currentUser}</span>`;
-            }
+            // Attendre l'authentification Firebase
+            const checkAuth = setInterval(() => {
+                const firebaseUID = sessionStorage.getItem('firebaseUID');
+                const userEmail = sessionStorage.getItem('userEmail');
+                
+                if (firebaseUID && userEmail) {
+                    sessionStorage.setItem('currentUser', firebaseUID);
+                    sessionStorage.setItem('authenticated', 'true');
+                    
+                    // Afficher l'email de l'utilisateur
+                    document.querySelector('header h1').innerHTML = `Dashboard Trading <span style="font-size: 0.6em; opacity: 0.7;">- ${userEmail}</span>`;
+                    
+                    clearInterval(checkAuth);
+                }
+            }, 100);
         });
     </script>
     
@@ -89,6 +107,7 @@
         <main>
             <div class="actions">
                 <button id="newTradeBtn" class="btn-primary">Nouveau Trade</button>
+                <button id="historyTradeBtn" class="btn-success">📅 TRADE PASSÉ</button>
                 <button id="settingsBtn" class="btn-secondary">⚙️ Paramètres</button>
                 <button id="closeTradeBtn" class="btn-warning">Clôturer Trade</button>
                 <button id="resetBtn" class="btn-danger">Reset Données</button>
@@ -97,44 +116,52 @@
             </div>
 
             <div class="charts-section">
-                <div class="chart-container">
+                <div class="chart-container" style="height: 350px; padding: 25px;">
                     <h3>📈 Performance Cumulative</h3>
-                    <canvas id="performanceChart" width="400" height="200"></canvas>
+                    <canvas id="performanceChart" style="max-height: 250px;"></canvas>
                 </div>
-                <div class="chart-container">
+                <div class="chart-container" style="height: 350px; padding: 25px; display: flex; flex-direction: column; justify-content: center;">
                     <h3>🎯 Taux de Réussite</h3>
-                    <canvas id="winRateChart" width="300" height="200"></canvas>
+                    <div style="height: 220px; display: flex; align-items: center; justify-content: center;">
+                        <canvas id="winRateChart" style="max-width: 180px; max-height: 180px;"></canvas>
+                    </div>
                 </div>
-                <div class="chart-container">
+                <div class="chart-container" style="height: 350px; padding: 25px;">
                     <h3>📊 Performance Mensuelle</h3>
-                    <canvas id="monthlyChart" width="400" height="200"></canvas>
+                    <canvas id="monthlyChart" style="max-height: 250px;"></canvas>
                 </div>
             </div>
             
             <div class="charts-section">
-                <div class="chart-container">
+                <div class="chart-container" style="height: 500px; padding: 25px;">
                     <div class="gauge-container">
                         <h3>💰 Performance Totale</h3>
-                        <div id="gainsGauge" class="gauge"></div>
+                        <div id="gainsGauge" class="gauge" style="width: 160px; height: 160px; margin: 15px auto;"></div>
                         <div id="gainsValue" class="gauge-value">$0</div>
                         <div id="gainsPercent" class="gauge-percent">0%</div>
                     </div>
                 </div>
-                <div class="chart-container">
+                <div class="chart-container" style="height: 500px; padding: 25px;">
                     <h3>📊 Analyse des Confluences</h3>
-                    <canvas id="confluencesChart"></canvas>
-                    <div id="confluenceAnalysis" class="confluence-analysis"></div>
+                    <canvas id="confluencesChart" style="max-height: 180px;"></canvas>
+                    <div id="confluenceAnalysis" class="confluence-analysis" style="margin-top: 10px;">
+                        <h4>🔍 Analyse des Confluences ICT</h4>
+                        <div class="analysis-item">
+                            <span class="confluence-name">Contexte Global</span>
+                            <span class="confluence-score score-excellent">Excellent</span>
+                        </div>
+                    </div>
                 </div>
             </div>
             
-            <div class="chart-container" style="margin-top: 30px;">
+            <div class="chart-container" style="margin-top: 30px; padding: 25px; height: 550px;">
                 <h3>🔗 Matrice de Corrélation ICT</h3>
-                <div id="correlationMatrix"></div>
-                <div class="correlation-legend">
-                    <div class="legend-item"><span class="legend-color excellent"></span>Excellente synergie (>80%)</div>
-                    <div class="legend-item"><span class="legend-color good"></span>Bonne synergie (60-80%)</div>
-                    <div class="legend-item"><span class="legend-color average"></span>Synergie moyenne (40-60%)</div>
-                    <div class="legend-item"><span class="legend-color poor"></span>Faible synergie (<40%)</div>
+                <div id="correlationMatrix" style="font-size: 0.9em; margin: 20px 0;"></div>
+                <div class="correlation-legend" style="margin-top: 20px;">
+                    <div class="legend-item"><span class="legend-color excellent"></span>Excellente (>80%)</div>
+                    <div class="legend-item"><span class="legend-color good"></span>Bonne (60-80%)</div>
+                    <div class="legend-item"><span class="legend-color average"></span>Moyenne (40-60%)</div>
+                    <div class="legend-item"><span class="legend-color poor"></span>Faible (<40%)</div>
                 </div>
             </div>
 
@@ -243,11 +270,321 @@
         </div>
     </div>
 
+    <!-- Modal Trade Passé -->
+    <div id="historyTradeModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>📅 Ajouter un Trade Passé</h3>
+                <span class="close" onclick="closeHistoryModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="historyTradeForm">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Date du Trade</label>
+                            <input type="date" id="tradeDate" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Paire</label>
+                            <select id="tradePair" required>
+                                <option value="EUR/USD">EUR/USD</option>
+                                <option value="GBP/USD">GBP/USD</option>
+                                <option value="USD/JPY">USD/JPY</option>
+                                <option value="AUD/USD">AUD/USD</option>
+                                <option value="USD/CHF">USD/CHF</option>
+                                <option value="NZD/USD">NZD/USD</option>
+                                <option value="USD/CAD">USD/CAD</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Type</label>
+                            <select id="tradeType" required>
+                                <option value="BUY">BUY</option>
+                                <option value="SELL">SELL</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Taille (lots)</label>
+                            <input type="number" id="tradeSize" step="0.01" min="0.01" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Prix d'Entrée</label>
+                            <input type="number" id="entryPrice" step="0.00001" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Résultat Final</label>
+                            <select id="tradeResult" required>
+                                <option value="TP">Take Profit (TP)</option>
+                                <option value="SL">Stop Loss (SL)</option>
+                                <option value="BE">Break Even (BE)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>P&L ($)</label>
+                            <input type="number" id="tradePnL" step="0.01" placeholder="Sera calculé automatiquement">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Stop Loss</label>
+                            <input type="number" id="stopLoss" step="0.00001" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Take Profit</label>
+                            <input type="number" id="takeProfit" step="0.00001" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Notes (optionnel)</label>
+                        <textarea id="tradeNotes" placeholder="Analyse du trade..."></textarea>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" onclick="closeHistoryModal()" class="btn-secondary">Annuler</button>
+                        <button type="button" class="btn-primary" onclick="addHistoryTrade()">Ajouter le Trade</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <script src="dashboard-script-working.js"></script>
+    <script>
+        document.getElementById('historyTradeBtn').addEventListener('click', () => {
+            document.getElementById('historyTradeModal').style.display = 'block';
+            document.getElementById('tradeDate').value = new Date().toISOString().split('T')[0];
+        });
+
+        function closeHistoryModal() {
+            document.getElementById('historyTradeModal').style.display = 'none';
+            document.getElementById('historyTradeForm').reset();
+        }
+        
+        window.closeHistoryModal = closeHistoryModal;
+
+        function calculatePnL() {
+            const entryPrice = parseFloat(document.getElementById('entryPrice').value);
+            const stopLoss = parseFloat(document.getElementById('stopLoss').value);
+            const takeProfit = parseFloat(document.getElementById('takeProfit').value);
+            const size = parseFloat(document.getElementById('tradeSize').value);
+            const type = document.getElementById('tradeType').value;
+            const pair = document.getElementById('tradePair').value;
+            const result = document.getElementById('tradeResult').value;
+
+            if (entryPrice && stopLoss && takeProfit && size && result) {
+                let exitPrice = 0;
+                
+                // Déterminer le prix de sortie selon le résultat
+                if (result === 'TP') {
+                    exitPrice = takeProfit;
+                } else if (result === 'SL') {
+                    exitPrice = stopLoss;
+                } else if (result === 'BE') {
+                    exitPrice = entryPrice;
+                }
+                
+                let pnl = 0;
+                
+                // Calcul du P&L
+                if (type === 'BUY') {
+                    pnl = (exitPrice - entryPrice) * size * 100000;
+                } else {
+                    pnl = (entryPrice - exitPrice) * size * 100000;
+                }
+                
+                // Ajustement pour les paires JPY
+                if (pair.includes('JPY')) {
+                    pnl = pnl / 100;
+                }
+                
+                document.getElementById('tradePnL').value = pnl.toFixed(2);
+            }
+        }
+
+        ['entryPrice', 'stopLoss', 'takeProfit', 'tradeSize', 'tradeType', 'tradePair', 'tradeResult'].forEach(id => {
+            document.getElementById(id).addEventListener('input', calculatePnL);
+            document.getElementById(id).addEventListener('change', calculatePnL);
+        });
+
+        function addHistoryTrade() {
+            console.log('addHistoryTrade called');
+            
+            try {
+                const entryPrice = parseFloat(document.getElementById('entryPrice').value);
+                const stopLoss = parseFloat(document.getElementById('stopLoss').value);
+                const takeProfit = parseFloat(document.getElementById('takeProfit').value);
+                const result = document.getElementById('tradeResult').value;
+                
+                let closePrice = entryPrice;
+                if (result === 'TP') closePrice = takeProfit;
+                if (result === 'SL') closePrice = stopLoss;
+                
+                const tradeData = {
+                    id: `trader_vip_${Date.now()}`,
+                    date: document.getElementById('tradeDate').value,
+                    currency: document.getElementById('tradePair').value,
+                    type: document.getElementById('tradeType').value,
+                    lotSize: parseFloat(document.getElementById('tradeSize').value),
+                    entryPoint: entryPrice,
+                    stopLoss: stopLoss,
+                    takeProfit: takeProfit,
+                    closePrice: closePrice,
+                    pnl: parseFloat(document.getElementById('tradePnL').value),
+                    result: result,
+                    notes: document.getElementById('tradeNotes').value,
+                    status: 'closed',
+                    createdAt: Date.now(),
+                    isHistorical: true
+                };
+
+                console.log('Trade data:', tradeData);
+                console.log('Dashboard exists:', !!window.dashboard);
+
+                if (window.dashboard) {
+                    window.dashboard.trades.push(tradeData);
+                    window.dashboard.saveData();
+                    window.dashboard.updateStats();
+                    window.dashboard.renderTradesTable();
+                    window.dashboard.renderCalendar();
+                    
+                    // Détruire tous les graphiques Chart.js existants
+                    Object.values(Chart.instances).forEach(chart => chart.destroy());
+                    
+                    // Recréer les graphiques
+                    setTimeout(() => {
+                        window.dashboard.initCharts();
+                        window.dashboard.initGauge();
+                        window.dashboard.updateCalendarStats();
+                    }, 100);
+                    
+                    console.log('Dashboard updated');
+                }
+                
+                console.log('Closing modal');
+                const modal = document.getElementById('historyTradeModal');
+                const form = document.getElementById('historyTradeForm');
+                
+                if (modal) {
+                    modal.style.display = 'none';
+                    console.log('Modal closed');
+                }
+                
+                if (form) {
+                    form.reset();
+                    console.log('Form reset');
+                }
+                
+                alert('Trade passé ajouté!');
+                
+            } catch (error) {
+                console.error('Error in addHistoryTrade:', error);
+                alert('Erreur: ' + error.message);
+            }
+        }
+        
+        window.addHistoryTrade = addHistoryTrade;
+
+        window.addEventListener('click', (e) => {
+            const modal = document.getElementById('historyTradeModal');
+            if (e.target === modal) {
+                closeHistoryModal();
+            }
+        });
+    </script>
+
+    <style>
+        .btn-success {
+            background: linear-gradient(135deg, #4ecdc4, #44a08d);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(78, 205, 196, 0.4);
+        }
+
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid rgba(0, 212, 255, 0.3);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            color: #00d4ff;
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        .form-row {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .form-group {
+            flex: 1;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #00d4ff;
+            font-weight: bold;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            border-radius: 5px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 14px;
+        }
+
+        .form-group textarea {
+            height: 80px;
+            resize: vertical;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+
+        .form-actions button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+    </style>
     
     <!-- Bouton de retour VIP -->
     <div style="position: fixed; top: 20px; right: 20px; z-index: 1000;">
-        <button onclick="window.close()" style="background: rgba(0, 212, 255, 0.8); color: white; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; backdrop-filter: blur(10px); transition: all 0.3s ease;">🔙 Retour</button>
+        <button onclick="window.location.href='vip-space.html'" style="background: rgba(0, 212, 255, 0.8); color: white; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; backdrop-filter: blur(10px); transition: all 0.3s ease;">🔙 Retour VIP</button>
     </div>
 </body>
 </html>

@@ -1,9 +1,9 @@
-// Dashboard Trading - Version Simplifiée et Fonctionnelle
-console.log('Loading dashboard script...');
+// Dashboard Trading - Version Complète et Corrigée
+console.log('Loading complete dashboard script...');
 
-class SimpleTradingDashboard {
+class CompleteTradingDashboard {
     constructor() {
-        console.log('Creating dashboard instance...');
+        console.log('Creating complete dashboard instance...');
         this.currentUser = 'trader_vip';
         this.currentAccount = 'compte1';
         this.trades = [];
@@ -22,8 +22,7 @@ class SimpleTradingDashboard {
         this.currentCalendarDate = new Date();
         this.currentStep = 0;
         this.currentTrade = {};
-        this.localVersion = Date.now();
-        this.unsubscribe = null;
+        this.charts = {};
         this.checklistSteps = [
             {
                 title: "✅ 1. Contexte Global",
@@ -76,14 +75,13 @@ class SimpleTradingDashboard {
             }
         ];
         
+        this.loadData();
         this.init();
     }
 
-    async init() {
-        console.log('Initializing dashboard...');
-        await this.loadData();
+    init() {
+        console.log('Initializing complete dashboard...');
         this.setupEventListeners();
-        this.setupRealtimeSync();
         this.updateStats();
         this.renderTradesTable();
         this.initCalendar();
@@ -91,46 +89,28 @@ class SimpleTradingDashboard {
         this.initCharts();
         this.initCorrelationMatrix();
         this.initGauge();
-        console.log('Dashboard initialized successfully');
-    }
-
-    async setupRealtimeSync() {
-        // Désactiver temporairement la sync temps réel pour éviter les erreurs de permissions
-        console.log('Sync temps réel désactivée temporairement');
-        
-        const syncStatus = document.getElementById('syncStatus');
-        if (syncStatus) {
-            syncStatus.textContent = '💾 Sauvegarde Firebase';
-            syncStatus.style.background = 'rgba(0, 212, 255, 0.2)';
-            syncStatus.style.color = '#00d4ff';
-        }
+        this.updatePlanProgress();
+        console.log('Complete dashboard initialized successfully');
     }
 
     setupEventListeners() {
         console.log('Setting up event listeners...');
         
-        // Attendre que le DOM soit prêt
         const setup = () => {
-            // Boutons principaux
             this.bindButton('newTradeBtn', () => this.startNewTrade());
             this.bindButton('settingsBtn', () => this.showSettings());
             this.bindButton('closeTradeBtn', () => this.showCloseTradeModal());
             this.bindButton('resetBtn', () => this.resetAllData());
             this.bindButton('manualCloseBtn', () => this.showManualCloseModal());
             this.bindButton('exportBtn', () => this.exportToExcel());
-            
-            // Boutons de compte
             this.bindButton('addAccountBtn', () => this.addNewAccount());
             this.bindButton('deleteAccountBtn', () => this.deleteAccount());
             
-            // Sélecteur de compte
             const accountSelect = document.getElementById('accountSelect');
             if (accountSelect) {
                 accountSelect.onchange = (e) => this.switchAccount(e.target.value);
-                console.log('Account selector configured');
             }
             
-            // Boutons calendrier
             this.bindButton('prevMonth', () => {
                 this.currentCalendarDate.setMonth(this.currentCalendarDate.getMonth() - 1);
                 this.renderCalendar();
@@ -140,13 +120,11 @@ class SimpleTradingDashboard {
                 this.renderCalendar();
             });
             
-            // Modal
             const closeModal = document.querySelector('.close');
             if (closeModal) {
                 closeModal.onclick = () => this.closeModal();
             }
             
-            // Clics sur les modals
             window.onclick = (e) => {
                 if (e.target === document.getElementById('tradeModal')) {
                     this.closeModal();
@@ -155,8 +133,6 @@ class SimpleTradingDashboard {
                     this.closeFullscreen();
                 }
             };
-            
-            console.log('All event listeners configured');
         };
         
         if (document.readyState === 'loading') {
@@ -176,135 +152,347 @@ class SimpleTradingDashboard {
         }
     }
 
-    async loadData() {
+    initCharts() {
+        console.log('Initializing charts...');
+        this.initPerformanceChart();
+        this.initWinRateChart();
+        this.initMonthlyChart();
+        this.initConfluencesChart();
+    }
+
+    initPerformanceChart() {
+        const ctx = document.getElementById('performanceChart');
+        if (!ctx) return;
+
+        const closedTrades = this.trades.filter(t => t.status === 'closed').sort((a, b) => new Date(a.date) - new Date(b.date));
+        let cumulativePnL = 0;
+        const data = closedTrades.map(trade => {
+            cumulativePnL += parseFloat(trade.pnl || 0);
+            return {
+                x: trade.date,
+                y: cumulativePnL
+            };
+        });
+
+        if (this.charts.performance) {
+            this.charts.performance.destroy();
+        }
+
+        this.charts.performance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                datasets: [{
+                    label: 'Performance Cumulative',
+                    data: data,
+                    borderColor: '#00d4ff',
+                    backgroundColor: 'rgba(0, 212, 255, 0.1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: { color: '#ffffff' }
+                    }
+                },
+                scales: {
+                    x: {
+                        type: 'time',
+                        time: { unit: 'day' },
+                        ticks: { color: '#ffffff' },
+                        grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                    },
+                    y: {
+                        ticks: { color: '#ffffff' },
+                        grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                    }
+                }
+            }
+        });
+    }
+
+    initWinRateChart() {
+        const ctx = document.getElementById('winRateChart');
+        if (!ctx) return;
+
+        const closedTrades = this.trades.filter(t => t.status === 'closed');
+        const wins = closedTrades.filter(t => parseFloat(t.pnl || 0) > 0).length;
+        const losses = closedTrades.length - wins;
+
+        if (this.charts.winRate) {
+            this.charts.winRate.destroy();
+        }
+
+        this.charts.winRate = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Gains', 'Pertes'],
+                datasets: [{
+                    data: [wins, losses],
+                    backgroundColor: ['#4ecdc4', '#ff6b6b'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: { color: '#ffffff' }
+                    }
+                }
+            }
+        });
+    }
+
+    initMonthlyChart() {
+        const ctx = document.getElementById('monthlyChart');
+        if (!ctx) return;
+
+        const monthlyData = {};
+        this.trades.filter(t => t.status === 'closed').forEach(trade => {
+            const month = new Date(trade.date).toISOString().slice(0, 7);
+            if (!monthlyData[month]) monthlyData[month] = 0;
+            monthlyData[month] += parseFloat(trade.pnl || 0);
+        });
+
+        const labels = Object.keys(monthlyData).sort();
+        const data = labels.map(month => monthlyData[month]);
+
+        if (this.charts.monthly) {
+            this.charts.monthly.destroy();
+        }
+
+        this.charts.monthly = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'P&L Mensuel',
+                    data: data,
+                    backgroundColor: data.map(val => val >= 0 ? '#4ecdc4' : '#ff6b6b'),
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: { color: '#ffffff' }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: { color: '#ffffff' },
+                        grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                    },
+                    y: {
+                        ticks: { color: '#ffffff' },
+                        grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                    }
+                }
+            }
+        });
+    }
+
+    initConfluencesChart() {
+        const ctx = document.getElementById('confluencesChart');
+        if (!ctx) return;
+
+        const confluenceData = {};
+        this.trades.forEach(trade => {
+            if (trade.confluences) {
+                Object.entries(trade.confluences).forEach(([key, value]) => {
+                    if (!confluenceData[key]) confluenceData[key] = {};
+                    if (!confluenceData[key][value]) confluenceData[key][value] = 0;
+                    confluenceData[key][value]++;
+                });
+            }
+        });
+
+        const labels = Object.keys(confluenceData);
+        const datasets = [];
+        const colors = ['#00d4ff', '#4ecdc4', '#ffc107', '#ff6b6b', '#5b86e5'];
+
+        labels.forEach((confluence, index) => {
+            const values = Object.values(confluenceData[confluence] || {});
+            datasets.push({
+                label: this.getConfluenceName(confluence),
+                data: values,
+                backgroundColor: colors[index % colors.length],
+                borderWidth: 0
+            });
+        });
+
+        if (this.charts.confluences) {
+            this.charts.confluences.destroy();
+        }
+
+        this.charts.confluences = new Chart(ctx, {
+            type: 'radar',
+            data: {
+                labels: ['Option 1', 'Option 2', 'Option 3', 'Option 4'],
+                datasets: datasets
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: { color: '#ffffff' }
+                    }
+                },
+                scales: {
+                    r: {
+                        ticks: { color: '#ffffff' },
+                        grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                        pointLabels: { color: '#ffffff' }
+                    }
+                }
+            }
+        });
+    }
+
+    initCorrelationMatrix() {
+        const container = document.getElementById('correlationMatrix');
+        if (!container) return;
+
+        const concepts = [
+            'Contexte Global',
+            'Zone Institutionnelle', 
+            'Structure Marché',
+            'Timing Killzones',
+            'Signal Entrée',
+            'Risk Management',
+            'Discipline'
+        ];
+
+        const correlationData = [
+            [100, 85, 75, 60, 70, 90, 80],
+            [85, 100, 80, 70, 85, 75, 70],
+            [75, 80, 100, 65, 90, 80, 75],
+            [60, 70, 65, 100, 55, 60, 85],
+            [70, 85, 90, 55, 100, 75, 70],
+            [90, 75, 80, 60, 75, 100, 95],
+            [80, 70, 75, 85, 70, 95, 100]
+        ];
+
+        let html = '<div class="correlation-grid">';
+        
+        // En-tête vide
+        html += '<div class="correlation-cell header"></div>';
+        
+        // En-têtes colonnes
+        concepts.forEach(concept => {
+            html += `<div class="correlation-cell header">${concept.split(' ')[0]}</div>`;
+        });
+
+        // Lignes de données
+        concepts.forEach((rowConcept, i) => {
+            html += `<div class="correlation-cell row-header">${rowConcept}</div>`;
+            correlationData[i].forEach((value, j) => {
+                const className = value >= 80 ? 'excellent' : 
+                                value >= 60 ? 'good' : 
+                                value >= 40 ? 'average' : 'poor';
+                html += `<div class="correlation-cell data ${className}">${value}%</div>`;
+            });
+        });
+
+        html += '</div>';
+        container.innerHTML = html;
+    }
+
+    initGauge() {
+        const container = document.getElementById('gainsGauge');
+        if (!container) return;
+
+        const closedTrades = this.trades.filter(t => t.status === 'closed');
+        const totalPnL = closedTrades.reduce((sum, t) => sum + parseFloat(t.pnl || 0), 0);
+        const initialCapital = this.accounts[this.currentAccount]?.capital || this.settings.capital;
+        const percentage = ((totalPnL / initialCapital) * 100).toFixed(1);
+
+        // Mise à jour des valeurs
+        this.updateElement('gainsValue', `$${totalPnL.toFixed(2)}`);
+        this.updateElement('gainsPercent', `${percentage}%`);
+
+        // Animation du gauge
+        container.style.background = `conic-gradient(from 0deg, 
+            ${totalPnL >= 0 ? '#4ecdc4' : '#ff6b6b'} 0deg ${Math.abs(percentage) * 3.6}deg, 
+            rgba(255, 255, 255, 0.1) ${Math.abs(percentage) * 3.6}deg 360deg)`;
+    }
+
+    updatePlanProgress() {
+        const closedTrades = this.trades.filter(t => t.status === 'closed');
+        const totalPnL = closedTrades.reduce((sum, t) => sum + parseFloat(t.pnl || 0), 0);
+        const initialCapital = this.accounts[this.currentAccount]?.capital || this.settings.capital;
+        
+        // Calcul des objectifs
+        const monthlyTargetAmount = (initialCapital * this.settings.monthlyTarget / 100);
+        const yearlyTargetAmount = (initialCapital * this.settings.yearlyTarget / 100);
+        
+        // Mise à jour des cibles
+        this.updateElement('monthlyTarget', monthlyTargetAmount.toFixed(0));
+        this.updateElement('yearlyTarget', yearlyTargetAmount.toFixed(0));
+        
+        // Calcul des progrès
+        const monthProgress = Math.min((totalPnL / monthlyTargetAmount) * 100, 100);
+        const yearProgress = Math.min((totalPnL / yearlyTargetAmount) * 100, 100);
+        const yearReturn = ((totalPnL / initialCapital) * 100).toFixed(1);
+        
+        // Mise à jour des barres de progression
+        const monthProgressBar = document.getElementById('monthlyProgressBar');
+        const yearProgressBar = document.getElementById('yearlyProgressBar');
+        
+        if (monthProgressBar) {
+            monthProgressBar.style.width = `${Math.max(monthProgress, 0)}%`;
+            if (monthProgress >= 100) monthProgressBar.classList.add('completed');
+        }
+        
+        if (yearProgressBar) {
+            yearProgressBar.style.width = `${Math.max(yearProgress, 0)}%`;
+            if (yearProgress >= 100) yearProgressBar.classList.add('completed');
+        }
+        
+        // Mise à jour des textes
+        this.updateElement('monthProgress', `${monthProgress.toFixed(1)}%`);
+        this.updateElement('yearProgress', `${yearProgress.toFixed(1)}%`);
+        this.updateElement('yearReturn', `${yearReturn}%`);
+    }
+
+    loadData() {
         try {
-            if (window.firebaseDB) {
-                await this.loadFromFirebase();
-            } else {
-                this.loadFromLocalStorage();
+            const savedTrades = localStorage.getItem(`trades_${this.currentUser}_${this.currentAccount}`);
+            if (savedTrades) {
+                this.trades = JSON.parse(savedTrades);
+            }
+            
+            const savedSettings = localStorage.getItem(`settings_${this.currentUser}_${this.currentAccount}`);
+            if (savedSettings) {
+                this.settings = JSON.parse(savedSettings);
+            }
+            
+            const savedAccounts = localStorage.getItem(`accounts_${this.currentUser}`);
+            if (savedAccounts) {
+                this.accounts = JSON.parse(savedAccounts);
             }
         } catch (error) {
             console.error('Error loading data:', error);
-            this.loadFromLocalStorage();
         }
     }
 
-    loadFromLocalStorage() {
+    saveData() {
         try {
-            const savedData = localStorage.getItem(`dashboard_${this.currentUser}`);
-            if (savedData) {
-                const data = JSON.parse(savedData);
-                this.trades = data.trades || [];
-                this.settings = data.settings || this.settings;
-                this.accounts = data.accounts || this.accounts;
-                this.currentAccount = data.currentAccount || this.currentAccount;
-                
-                console.log('Données chargées depuis localStorage');
-            }
-        } catch (error) {
-            console.error('Erreur chargement local:', error);
-        }
-    }
-
-    async loadFromFirebase() {
-        try {
-            const { doc, getDoc } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js');
-            const docRef = doc(window.firebaseDB, 'dashboards', this.currentUser);
-            const docSnap = await getDoc(docRef);
-            
-            if (docSnap.exists()) {
-                const data = docSnap.data();
-                this.trades = data.trades || [];
-                this.settings = data.settings || this.settings;
-                this.accounts = data.accounts || this.accounts;
-                this.currentAccount = data.currentAccount || this.currentAccount;
-                console.log('Données chargées depuis Firebase');
-            } else {
-                console.log('Aucune donnée Firebase, utilisation des valeurs par défaut');
-            }
-        } catch (error) {
-            console.error('Erreur chargement Firebase:', error);
-            throw error; // Relancer pour utiliser localStorage
-        }
-    }
-
-    async saveData() {
-        try {
-            this.localVersion = Date.now();
-            if (window.firebaseDB) {
-                await this.saveToFirebase();
-            }
-            this.saveToLocalStorage();
+            localStorage.setItem(`trades_${this.currentUser}_${this.currentAccount}`, JSON.stringify(this.trades));
+            localStorage.setItem(`settings_${this.currentUser}_${this.currentAccount}`, JSON.stringify(this.settings));
+            localStorage.setItem(`accounts_${this.currentUser}`, JSON.stringify(this.accounts));
+            localStorage.setItem(`currentAccount_${this.currentUser}`, this.currentAccount);
         } catch (error) {
             console.error('Error saving data:', error);
-            this.saveToLocalStorage();
-        }
-    }
-
-    saveToLocalStorage() {
-        try {
-            // Sauvegarder toutes les données dans une seule clé pour éviter les conflits
-            const allData = {
-                trades: this.trades,
-                settings: this.settings,
-                accounts: this.accounts,
-                currentAccount: this.currentAccount,
-                lastUpdated: new Date().toISOString()
-            };
-            
-            localStorage.setItem(`dashboard_${this.currentUser}`, JSON.stringify(allData));
-            
-            // Mettre à jour le statut
-            const syncStatus = document.getElementById('syncStatus');
-            if (syncStatus) {
-                syncStatus.textContent = '✅ Sauvegardé';
-                setTimeout(() => {
-                    syncStatus.textContent = '💾 Local';
-                }, 1000);
-            }
-        } catch (error) {
-            console.error('Erreur sauvegarde locale:', error);
-        }
-    }
-
-    async saveToFirebase() {
-        if (!window.firebaseDB) return;
-        
-        try {
-            const { doc, setDoc } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js');
-            const docRef = doc(window.firebaseDB, 'dashboards', this.currentUser);
-            
-            const dataToSave = {
-                trades: this.trades,
-                settings: this.settings,
-                accounts: this.accounts,
-                currentAccount: this.currentAccount,
-                lastUpdated: new Date().toISOString(),
-                version: Date.now()
-            };
-            
-            await setDoc(docRef, dataToSave);
-            
-            const syncStatus = document.getElementById('syncStatus');
-            if (syncStatus) {
-                syncStatus.textContent = '✅ Firebase OK';
-                syncStatus.style.background = 'rgba(78, 205, 196, 0.2)';
-                syncStatus.style.color = '#4ecdc4';
-                setTimeout(() => {
-                    syncStatus.textContent = '🔥 Firebase';
-                }, 2000);
-            }
-            
-            console.log('Sauvegarde Firebase réussie');
-            
-        } catch (error) {
-            console.warn('Firebase indisponible, utilisation localStorage:', error.message);
-            const syncStatus = document.getElementById('syncStatus');
-            if (syncStatus) {
-                syncStatus.textContent = '💾 Local';
-                syncStatus.style.background = 'rgba(255, 193, 7, 0.2)';
-                syncStatus.style.color = '#ffc107';
-            }
         }
     }
 
@@ -323,6 +511,18 @@ class SimpleTradingDashboard {
         this.updateElement('totalPnL', `$${totalPnL.toFixed(2)}`, totalPnL >= 0 ? 'positive' : 'negative');
         this.updateElement('winRate', `${winRate}%`);
         this.updateElement('capital', `$${currentCapital.toFixed(2)}`, totalPnL >= 0 ? 'positive' : 'negative');
+        
+        // Mise à jour des graphiques
+        this.updateCharts();
+        this.initGauge();
+        this.updatePlanProgress();
+    }
+
+    updateCharts() {
+        this.initPerformanceChart();
+        this.initWinRateChart();
+        this.initMonthlyChart();
+        this.initConfluencesChart();
     }
 
     updateElement(id, text, className = '') {
@@ -429,7 +629,6 @@ class SimpleTradingDashboard {
         const currentCapital = initialCapital + totalPnL;
         const riskAmount = (currentCapital * this.settings.riskPerTrade / 100).toFixed(2);
         
-        // Résumé des confluences
         const confluencesHtml = Object.keys(this.currentTrade.confluences || {}).length > 0 ? `
             <div class="confluences-summary">
                 <h4>🔍 Confluences Analysées:</h4>
@@ -525,15 +724,6 @@ class SimpleTradingDashboard {
         this.updateStats();
         this.renderTradesTable();
         this.renderCalendar();
-        
-        // Détruire et recréer tous les graphiques
-        Object.values(Chart.instances).forEach(chart => chart.destroy());
-        setTimeout(() => {
-            this.initCharts();
-            this.initGauge();
-            this.updateCalendarStats();
-        }, 100);
-        
         this.showNotification('Trade enregistré avec succès!');
     }
 
@@ -601,16 +791,6 @@ class SimpleTradingDashboard {
         this.renderTradesTable();
         this.renderCalendar();
         
-        // Détruire et recréer tous les graphiques
-        Object.values(Chart.instances).forEach(chart => chart.destroy());
-        setTimeout(() => {
-            this.initCharts();
-            this.initGauge();
-            this.updateCalendarStats();
-        }, 100);
-        
-        this.closeModal();
-        
         this.showNotification(`Trade ${trade.currency} clôturé en ${result}`);
     }
 
@@ -667,7 +847,6 @@ class SimpleTradingDashboard {
         
         calendarGrid.innerHTML = '';
         
-        // En-têtes des jours
         const dayHeaders = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
         dayHeaders.forEach(day => {
             const dayHeader = document.createElement('div');
@@ -679,7 +858,6 @@ class SimpleTradingDashboard {
         const initialCapital = this.accounts[this.currentAccount]?.capital || this.settings.capital;
         const dailyTargetAmount = (initialCapital * this.settings.dailyTarget / 100);
         
-        // Jours du calendrier
         for (let i = 0; i < 42; i++) {
             const currentDate = new Date(startDate);
             currentDate.setDate(startDate.getDate() + i);
@@ -695,7 +873,6 @@ class SimpleTradingDashboard {
             const dayTrades = this.trades.filter(t => t.date === dateStr);
             const dayPnL = dayTrades.reduce((sum, t) => sum + parseFloat(t.pnl || 0), 0);
             
-            // Indicateur d'objectif atteint
             const targetReached = dayPnL >= dailyTargetAmount;
             const targetIcon = targetReached ? '✅' : (dayPnL > 0 ? '🟡' : (dayPnL < 0 ? '🔴' : ''));
             
@@ -726,61 +903,27 @@ class SimpleTradingDashboard {
     updateCalendarStats() {
         const year = this.currentCalendarDate.getFullYear();
         const month = this.currentCalendarDate.getMonth();
-        const today = new Date();
         
-        const initialCapital = this.accounts[this.currentAccount]?.capital || this.settings.capital;
-        const dailyTarget = (initialCapital * this.settings.dailyTarget / 100);
-        const monthlyTarget = (initialCapital * this.settings.monthlyTarget / 100);
-        const yearlyTarget = (initialCapital * this.settings.yearlyTarget / 100);
-        
-        // Stats du jour actuel
-        const todayStr = today.toISOString().split('T')[0];
-        const todayTrades = this.trades.filter(t => t.date === todayStr);
-        const todayPnL = todayTrades.reduce((sum, t) => sum + parseFloat(t.pnl || 0), 0);
-        
-        // Stats du mois
         const monthTrades = this.trades.filter(t => {
             const tradeDate = new Date(t.date);
             return tradeDate.getFullYear() === year && tradeDate.getMonth() === month;
         });
         const monthPnL = monthTrades.reduce((sum, t) => sum + parseFloat(t.pnl || 0), 0);
+        const monthWins = monthTrades.filter(t => parseFloat(t.pnl || 0) > 0).length;
+        const monthWinRate = monthTrades.length > 0 ? (monthWins / monthTrades.length * 100).toFixed(1) : 0;
         
-        // Stats de l'année
         const yearTrades = this.trades.filter(t => {
             const tradeDate = new Date(t.date);
             return tradeDate.getFullYear() === year;
         });
         const yearPnL = yearTrades.reduce((sum, t) => sum + parseFloat(t.pnl || 0), 0);
+        const yearWins = yearTrades.filter(t => parseFloat(t.pnl || 0) > 0).length;
+        const yearWinRate = yearTrades.length > 0 ? (yearWins / yearTrades.length * 100).toFixed(1) : 0;
         
-        // Mise à jour des éléments de stats s'ils existent
-        this.updateElement('todayPnL', `$${todayPnL.toFixed(2)}`, todayPnL >= 0 ? 'positive' : 'negative');
         this.updateElement('monthPnL', `$${monthPnL.toFixed(2)}`, monthPnL >= 0 ? 'positive' : 'negative');
+        this.updateElement('monthWinRate', `${monthWinRate}%`);
         this.updateElement('yearPnL', `$${yearPnL.toFixed(2)}`, yearPnL >= 0 ? 'positive' : 'negative');
-        
-        // Progrès des objectifs
-        const monthProgress = monthlyTarget > 0 ? Math.min((monthPnL / monthlyTarget) * 100, 100).toFixed(1) : 0;
-        const yearProgress = yearlyTarget > 0 ? Math.min((yearPnL / yearlyTarget) * 100, 100).toFixed(1) : 0;
-        
-        this.updateElement('monthProgress', `${monthProgress}%`);
-        this.updateElement('yearProgress', `${yearProgress}%`);
-        
-        // Calcul du rendement annuel
-        const totalPnL = this.trades.filter(t => t.status === 'closed').reduce((sum, t) => sum + parseFloat(t.pnl || 0), 0);
-        const yearReturn = ((totalPnL / initialCapital) * 100).toFixed(1);
-        this.updateElement('yearReturn', `${yearReturn}%`);
-        
-        const monthProgressBar = document.getElementById('monthlyProgressBar');
-        const yearProgressBar = document.getElementById('yearlyProgressBar');
-        
-        if (monthProgressBar) {
-            monthProgressBar.style.width = `${Math.min(monthProgress, 100)}%`;
-            if (monthProgress >= 100) monthProgressBar.classList.add('completed');
-        }
-        
-        if (yearProgressBar) {
-            yearProgressBar.style.width = `${Math.min(yearProgress, 100)}%`;
-            if (yearProgress >= 100) yearProgressBar.classList.add('completed');
-        }
+        this.updateElement('yearWinRate', `${yearWinRate}%`);
     }
 
     showModal() {
@@ -824,15 +967,6 @@ class SimpleTradingDashboard {
             this.updateStats();
             this.renderTradesTable();
             this.renderCalendar();
-            
-            // Détruire et recréer tous les graphiques
-            Object.values(Chart.instances).forEach(chart => chart.destroy());
-            setTimeout(() => {
-                this.initCharts();
-                this.initGauge();
-                this.updateCalendarStats();
-            }, 100);
-            
             this.showNotification('Toutes les données ont été supprimées');
         }
     }
@@ -890,38 +1024,21 @@ class SimpleTradingDashboard {
         }
     }
 
-    async deleteAccount() {
+    deleteAccount() {
         if (Object.keys(this.accounts).length <= 1) {
             alert('Impossible de supprimer le dernier compte');
             return;
         }
         
-        const accountName = this.accounts[this.currentAccount].name;
-        if (confirm(`Supprimer le compte "${accountName}" et toutes ses données ?`)) {
-            // Supprimer le compte
+        if (confirm(`Supprimer le compte "${this.accounts[this.currentAccount].name}" ?`)) {
             delete this.accounts[this.currentAccount];
-            
-            // Changer vers le premier compte disponible
             this.currentAccount = Object.keys(this.accounts)[0];
-            
-            // Vider les trades du compte supprimé
-            this.trades = [];
-            
-            // Sauvegarder immédiatement sur Firebase
-            await this.saveData();
-            
-            // Recharger les données du nouveau compte
-            await this.loadData();
-            
-            // Mettre à jour l'interface
+            this.loadData();
             this.updateAccountDisplay();
             this.updateStats();
             this.renderTradesTable();
             this.renderCalendar();
-            this.initCharts();
-            this.initGauge();
-            
-            this.showNotification(`Compte "${accountName}" supprimé définitivement`);
+            this.showNotification('Compte supprimé');
         }
     }
 
@@ -1061,252 +1178,17 @@ class SimpleTradingDashboard {
             modal.style.display = 'flex';
         }
     }
-
-    initCharts() {
-        this.initPerformanceChart();
-        this.initWinRateChart();
-        this.initMonthlyChart();
-        this.initConfluencesChart();
-    }
-
-    initConfluencesChart() {
-        const ctx = document.getElementById('confluencesChart');
-        if (!ctx) return;
-
-        // Données par défaut si pas de trades
-        const defaultData = [85, 75, 90, 70, 80, 95, 88];
-        const labels = ['Contexte', 'Zone Inst.', 'Structure', 'Killzones', 'Signal', 'Risk Mgmt', 'Discipline'];
-
-        new Chart(ctx, {
-            type: 'radar',
-            data: {
-                labels: labels,
-                datasets: [{
-                    data: defaultData,
-                    borderColor: '#00d4ff',
-                    backgroundColor: 'rgba(0, 212, 255, 0.2)',
-                    borderWidth: 2,
-                    pointBackgroundColor: '#00d4ff',
-                    pointRadius: 4
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: {
-                    r: {
-                        beginAtZero: true,
-                        max: 100,
-                        ticks: {
-                            display: false
-                        },
-                        grid: {
-                            color: 'rgba(255, 255, 255, 0.1)'
-                        },
-                        pointLabels: {
-                            color: '#ffffff',
-                            font: { size: 10 }
-                        }
-                    }
-                }
-            }
-        });
-    }
-
-    initPerformanceChart() {
-        const ctx = document.getElementById('performanceChart');
-        if (!ctx) return;
-
-        const closedTrades = this.trades.filter(t => t.status === 'closed');
-        let cumulativePnL = 0;
-        const data = closedTrades.map(trade => {
-            cumulativePnL += parseFloat(trade.pnl || 0);
-            return cumulativePnL;
-        });
-
-        new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: closedTrades.map((_, i) => `T${i + 1}`),
-                datasets: [{
-                    data: data,
-                    borderColor: '#00d4ff',
-                    backgroundColor: 'rgba(0, 212, 255, 0.2)',
-                    borderWidth: 3,
-                    fill: true,
-                    tension: 0.4,
-                    pointRadius: 4
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: {
-                    x: { display: false },
-                    y: {
-                        ticks: {
-                            color: '#ffffff',
-                            callback: function(value) { return '$' + value; }
-                        },
-                        grid: { color: 'rgba(255, 255, 255, 0.1)' }
-                    }
-                }
-            }
-        });
-    }
-
-    initWinRateChart() {
-        const ctx = document.getElementById('winRateChart');
-        if (!ctx) return;
-
-        const closedTrades = this.trades.filter(t => t.status === 'closed');
-        const wins = closedTrades.filter(t => parseFloat(t.pnl || 0) > 0).length;
-        const losses = closedTrades.length - wins;
-        const winRate = closedTrades.length > 0 ? (wins / closedTrades.length * 100).toFixed(0) : 0;
-
-        new Chart(ctx, {
-            type: 'doughnut',
-            data: {
-                datasets: [{
-                    data: [wins, losses],
-                    backgroundColor: ['#4ecdc4', '#ff6b6b'],
-                    borderWidth: 0,
-                    cutout: '70%'
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false }
-                }
-            },
-            plugins: [{
-                beforeDraw: function(chart) {
-                    const ctx = chart.ctx;
-                    const centerX = chart.chartArea.left + (chart.chartArea.right - chart.chartArea.left) / 2;
-                    const centerY = chart.chartArea.top + (chart.chartArea.bottom - chart.chartArea.top) / 2;
-                    ctx.save();
-                    ctx.font = 'bold 20px Inter';
-                    ctx.fillStyle = '#ffffff';
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    ctx.fillText(winRate + '%', centerX, centerY);
-                    ctx.restore();
-                }
-            }]
-        });
-    }
-
-    initMonthlyChart() {
-        const ctx = document.getElementById('monthlyChart');
-        if (!ctx) return;
-
-        const monthlyData = {};
-        this.trades.filter(t => t.status === 'closed').forEach(trade => {
-            const month = new Date(trade.date).toLocaleDateString('fr-FR', { month: 'short' });
-            if (!monthlyData[month]) monthlyData[month] = 0;
-            monthlyData[month] += parseFloat(trade.pnl || 0);
-        });
-
-        const labels = Object.keys(monthlyData);
-        const data = labels.map(month => monthlyData[month]);
-
-        new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: labels,
-                datasets: [{
-                    data: data,
-                    backgroundColor: data.map(val => val >= 0 ? '#4ecdc4' : '#ff6b6b'),
-                    borderRadius: 8,
-                    borderSkipped: false
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: {
-                    x: {
-                        ticks: { color: '#ffffff', font: { size: 11 } },
-                        grid: { display: false }
-                    },
-                    y: {
-                        ticks: {
-                            color: '#ffffff',
-                            callback: function(value) { return '$' + value; }
-                        },
-                        grid: { color: 'rgba(255, 255, 255, 0.1)' }
-                    }
-                }
-            }
-        });
-    }
-
-    initCorrelationMatrix() {
-        const container = document.getElementById('correlationMatrix');
-        if (!container) return;
-
-        const concepts = ['Contexte', 'Zone Inst.', 'Structure', 'Killzones', 'Signal', 'Risk Mgmt', 'Discipline'];
-        const correlationData = [
-            [100, 85, 75, 60, 70, 90, 80],
-            [85, 100, 80, 70, 85, 75, 70],
-            [75, 80, 100, 65, 90, 80, 75],
-            [60, 70, 65, 100, 55, 60, 85],
-            [70, 85, 90, 55, 100, 75, 70],
-            [90, 75, 80, 60, 75, 100, 95],
-            [80, 70, 75, 85, 70, 95, 100]
-        ];
-
-        let html = '<div class="correlation-grid">';
-        html += '<div class="correlation-cell header"></div>';
-        
-        concepts.forEach(concept => {
-            html += `<div class="correlation-cell header">${concept}</div>`;
-        });
-
-        concepts.forEach((rowConcept, i) => {
-            html += `<div class="correlation-cell row-header">${rowConcept}</div>`;
-            correlationData[i].forEach((value, j) => {
-                const className = value >= 80 ? 'excellent' : value >= 60 ? 'good' : 'average';
-                html += `<div class="correlation-cell data ${className}">${value}%</div>`;
-            });
-        });
-
-        html += '</div>';
-        container.innerHTML = html;
-    }
-
-    initGauge() {
-        const container = document.getElementById('gainsGauge');
-        if (!container) return;
-
-        const closedTrades = this.trades.filter(t => t.status === 'closed');
-        const totalPnL = closedTrades.reduce((sum, t) => sum + parseFloat(t.pnl || 0), 0);
-        const initialCapital = this.accounts[this.currentAccount]?.capital || this.settings.capital;
-        const percentage = ((totalPnL / initialCapital) * 100).toFixed(1);
-
-        this.updateElement('gainsValue', `$${totalPnL.toFixed(2)}`);
-        this.updateElement('gainsPercent', `${percentage}%`);
-
-        container.style.background = `conic-gradient(from 0deg, 
-            ${totalPnL >= 0 ? '#4ecdc4' : '#ff6b6b'} 0deg ${Math.abs(percentage) * 3.6}deg, 
-            rgba(255, 255, 255, 0.1) ${Math.abs(percentage) * 3.6}deg 360deg)`;
-    }
 }
 
 // Initialisation globale
 let dashboard;
 
 function initializeDashboard() {
-    console.log('Starting dashboard initialization...');
+    console.log('Starting complete dashboard initialization...');
     try {
-        dashboard = new SimpleTradingDashboard();
+        dashboard = new CompleteTradingDashboard();
         window.dashboard = dashboard;
-        console.log('Dashboard created successfully');
+        console.log('Complete dashboard created successfully');
     } catch (error) {
         console.error('Error creating dashboard:', error);
     }
@@ -1327,4 +1209,4 @@ window.addEventListener('load', function() {
     }
 });
 
-console.log('Dashboard script loaded successfully');
+console.log('Complete dashboard script loaded successfully');
