@@ -130,7 +130,6 @@ class SimpleTradingDashboard {
             this.bindButton('resetBtn', () => this.resetAllData());
             this.bindButton('manualCloseBtn', () => this.showManualCloseModal());
             this.bindButton('exportBtn', () => this.exportToExcel());
-            this.bindButton('cleanupBtn', () => this.cleanupOrphanedData());
             
             // Boutons de compte
             this.bindButton('addAccountBtn', () => this.addNewAccount());
@@ -1031,22 +1030,7 @@ class SimpleTradingDashboard {
         }
     }
 
-    async cleanupOrphanedData() {
-        if (!window.firebaseDB) return;
-        
-        try {
-            const { ref, remove } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js');
-            
-            // Supprimer les données orphelines sous 'trader_vip'
-            const traderVipRef = ref(window.firebaseDB, 'dashboards/trader_vip');
-            await remove(traderVipRef);
-            
-            console.log('Données orphelines supprimées');
-            this.showNotification('Nettoyage Firebase terminé');
-        } catch (error) {
-            console.error('Erreur nettoyage:', error);
-        }
-    }
+
 
     showCloseTradeModal() {
         const openTrades = this.trades.filter(t => t.status === 'open');

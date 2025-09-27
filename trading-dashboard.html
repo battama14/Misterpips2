@@ -114,7 +114,6 @@
                 <button id="resetBtn" class="btn-danger">Reset Données</button>
                 <button id="manualCloseBtn" class="btn-warning">🎯 Clôture Manuelle</button>
                 <button id="exportBtn" class="btn-info">📊 Export Excel</button>
-                <button id="cleanupBtn" class="btn-warning">🧹 Nettoyer Firebase</button>
             </div>
 
             <div class="charts-section">
@@ -717,10 +716,12 @@
                         
                         // Essayer plusieurs chemins possibles pour les trades
                         const paths = [
+                            `dashboards/${userId}/trades`,
                             `trading_data/${userId}/trades`,
                             `users/${userId}/trades`,
                             `trades/${userId}`,
-                            `user_trades/${userId}`
+                            `user_trades/${userId}`,
+                            `dashboards/${userId}`
                         ];
                         
                         for (const path of paths) {
@@ -728,9 +729,25 @@
                             const snapshot = await get(tradesRef);
                             
                             if (snapshot.exists()) {
-                                const trades = Object.values(snapshot.val());
+                                const data = snapshot.val();
+                                let trades = [];
+                                
+                                // Si c'est un objet avec une propriété trades
+                                if (data.trades && Array.isArray(data.trades)) {
+                                    trades = data.trades;
+                                } else if (data.trades && typeof data.trades === 'object') {
+                                    trades = Object.values(data.trades);
+                                } else if (Array.isArray(data)) {
+                                    trades = data;
+                                } else if (typeof data === 'object') {
+                                    // Essayer de trouver des trades dans l'objet
+                                    trades = Object.values(data).filter(item => 
+                                        item && typeof item === 'object' && item.currency && item.date
+                                    );
+                                }
+                                
                                 const todayTrades = trades.filter(trade => {
-                                    return trade.date === date && 
+                                    return trade && trade.date === date && 
                                            (trade.status === 'closed' || trade.status === 'completed');
                                 });
                                 const dailyPnL = todayTrades.reduce((total, trade) => {
@@ -742,19 +759,40 @@
                         }
                         
                         // Si aucun chemin ne fonctionne, vérifier les données locales
-                        const localData = localStorage.getItem(`dashboard_${userId}`);
-                        if (localData) {
-                            const data = JSON.parse(localData);
-                            if (data.trades) {
-                                const todayTrades = data.trades.filter(trade => {
-                                    return trade.date === date && 
-                                           (trade.status === 'closed' || trade.status === 'completed');
-                                });
-                                const dailyPnL = todayTrades.reduce((total, trade) => {
-                                    return total + (parseFloat(trade.pnl) || 0);
-                                }, 0);
-                                console.log(`Found ${todayTrades.length} local trades for ${userId} on ${date}, P&L: ${dailyPnL}`);
-                                return { dailyPnL, tradeCount: todayTrades.length };
+                        const possibleKeys = [
+                            `dashboard_${userId}`,
+                            `trading_${userId}`,
+                            `user_${userId}`,
+                            userId
+                        ];
+                        
+                        for (const key of possibleKeys) {
+                            const localData = localStorage.getItem(key);
+                            if (localData) {
+                                try {
+                                    const data = JSON.parse(localData);
+                                    let trades = [];
+                                    
+                                    if (data.trades && Array.isArray(data.trades)) {
+                                        trades = data.trades;
+                                    } else if (data.trades && typeof data.trades === 'object') {
+                                        trades = Object.values(data.trades);
+                                    }
+                                    
+                                    if (trades.length > 0) {
+                                        const todayTrades = trades.filter(trade => {
+                                            return trade && trade.date === date && 
+                                                   (trade.status === 'closed' || trade.status === 'completed');
+                                        });
+                                        const dailyPnL = todayTrades.reduce((total, trade) => {
+                                            return total + (parseFloat(trade.pnl) || 0);
+                                        }, 0);
+                                        console.log(`Found ${todayTrades.length} local trades for ${userId} on ${date}, P&L: ${dailyPnL}`);
+                                        return { dailyPnL, tradeCount: todayTrades.length };
+                                    }
+                                } catch (e) {
+                                    console.warn(`Error parsing localStorage for key ${key}:`, e);
+                                }
                             }
                         }
                     }
