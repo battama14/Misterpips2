@@ -4,15 +4,22 @@ console.log('Loading dashboard script...');
 class SimpleTradingDashboard {
     constructor() {
         console.log('Creating dashboard instance...');
-        this.currentUser = 'trader_vip';
+        this.currentUser = sessionStorage.getItem('firebaseUID');
+        if (!this.currentUser) {
+            console.error('Aucun UID Firebase trouvé!');
+            alert('Erreur: Vous devez être connecté pour accéder au dashboard');
+            window.location.href = 'index.html';
+            return;
+        }
         this.currentAccount = 'compte1';
         this.trades = [];
         this.settings = { 
             capital: 1000, 
             riskPerTrade: 2,
             dailyTarget: 1,
-            monthlyTarget: 5,
-            yearlyTarget: 60
+            weeklyTarget: 3,
+            monthlyTarget: 15,
+            yearlyTarget: 200
         };
         this.accounts = {
             'compte1': { name: 'Compte Principal', capital: 1000 },
@@ -81,6 +88,11 @@ class SimpleTradingDashboard {
 
     async init() {
         console.log('Initializing dashboard...');
+        // S'assurer d'avoir le bon UID
+        const firebaseUID = sessionStorage.getItem('firebaseUID');
+        if (firebaseUID) {
+            this.currentUser = firebaseUID;
+        }
         await this.loadData();
         this.setupEventListeners();
         this.setupRealtimeSync();
@@ -118,6 +130,7 @@ class SimpleTradingDashboard {
             this.bindButton('resetBtn', () => this.resetAllData());
             this.bindButton('manualCloseBtn', () => this.showManualCloseModal());
             this.bindButton('exportBtn', () => this.exportToExcel());
+            this.bindButton('cleanupBtn', () => this.cleanupOrphanedData());
             
             // Boutons de compte
             this.bindButton('addAccountBtn', () => this.addNewAccount());
@@ -208,23 +221,23 @@ class SimpleTradingDashboard {
 
     async loadFromFirebase() {
         try {
-            const { doc, getDoc } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js');
-            const docRef = doc(window.firebaseDB, 'dashboards', this.currentUser);
-            const docSnap = await getDoc(docRef);
+            const { ref, get } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js');
+            const userRef = ref(window.firebaseDB, `dashboards/${this.currentUser}`);
+            const snapshot = await get(userRef);
             
-            if (docSnap.exists()) {
-                const data = docSnap.data();
+            if (snapshot.exists()) {
+                const data = snapshot.val();
                 this.trades = data.trades || [];
                 this.settings = data.settings || this.settings;
                 this.accounts = data.accounts || this.accounts;
                 this.currentAccount = data.currentAccount || this.currentAccount;
-                console.log('Données chargées depuis Firebase');
+                console.log('Données chargées depuis Realtime Database');
             } else {
                 console.log('Aucune donnée Firebase, utilisation des valeurs par défaut');
             }
         } catch (error) {
             console.error('Erreur chargement Firebase:', error);
-            throw error; // Relancer pour utiliser localStorage
+            throw error;
         }
     }
 
@@ -270,40 +283,52 @@ class SimpleTradingDashboard {
     async saveToFirebase() {
         if (!window.firebaseDB) return;
         
-        try {
-            const { doc, setDoc } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js');
-            const docRef = doc(window.firebaseDB, 'dashboards', this.currentUser);
-            
-            const dataToSave = {
-                trades: this.trades,
-                settings: this.settings,
-                accounts: this.accounts,
-                currentAccount: this.currentAccount,
-                lastUpdated: new Date().toISOString(),
-                version: Date.now()
-            };
-            
-            await setDoc(docRef, dataToSave);
-            
-            const syncStatus = document.getElementById('syncStatus');
-            if (syncStatus) {
-                syncStatus.textContent = '✅ Firebase OK';
-                syncStatus.style.background = 'rgba(78, 205, 196, 0.2)';
-                syncStatus.style.color = '#4ecdc4';
-                setTimeout(() => {
-                    syncStatus.textContent = '🔥 Firebase';
-                }, 2000);
-            }
-            
-            console.log('Sauvegarde Firebase réussie');
-            
-        } catch (error) {
-            console.warn('Firebase indisponible, utilisation localStorage:', error.message);
-            const syncStatus = document.getElementById('syncStatus');
-            if (syncStatus) {
-                syncStatus.textContent = '💾 Local';
-                syncStatus.style.background = 'rgba(255, 193, 7, 0.2)';
-                syncStatus.style.color = '#ffc107';
+        const maxRetries = 3;
+        let retryCount = 0;
+        
+        while (retryCount < maxRetries) {
+            try {
+                const { ref, set } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js');
+                const userRef = ref(window.firebaseDB, `dashboards/${this.currentUser}`);
+                
+                const dataToSave = {
+                    trades: this.trades,
+                    settings: this.settings,
+                    accounts: this.accounts,
+                    currentAccount: this.currentAccount,
+                    lastUpdated: new Date().toISOString(),
+                    version: Date.now()
+                };
+                
+                await set(userRef, dataToSave);
+                
+                const syncStatus = document.getElementById('syncStatus');
+                if (syncStatus) {
+                    syncStatus.textContent = '✅ Firebase OK';
+                    syncStatus.style.background = 'rgba(78, 205, 196, 0.2)';
+                    syncStatus.style.color = '#4ecdc4';
+                    setTimeout(() => {
+                        syncStatus.textContent = '🔥 Firebase';
+                    }, 2000);
+                }
+                
+                console.log('Sauvegarde Firebase réussie');
+                return;
+                
+            } catch (error) {
+                retryCount++;
+                console.warn(`Tentative Firebase ${retryCount}/${maxRetries} échouée:`, error.message);
+                
+                if (retryCount >= maxRetries) {
+                    const syncStatus = document.getElementById('syncStatus');
+                    if (syncStatus) {
+                        syncStatus.textContent = '⚠️ Local uniquement';
+                        syncStatus.style.background = 'rgba(255, 107, 107, 0.2)';
+                        syncStatus.style.color = '#ff6b6b';
+                    }
+                } else {
+                    await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+                }
             }
         }
     }
@@ -385,12 +410,16 @@ class SimpleTradingDashboard {
                     <input type="number" id="dailyTargetInput" value="${this.settings.dailyTarget}" step="0.1" min="0.1">
                 </div>
                 <div class="form-group">
+                    <label>Objectif hebdomadaire (% du capital):</label>
+                    <input type="number" id="weeklyTargetInput" value="${this.settings.weeklyTarget}" step="0.5" min="0.5">
+                </div>
+                <div class="form-group">
                     <label>Objectif mensuel (% du capital):</label>
-                    <input type="number" id="monthlyTargetInput" value="${this.settings.monthlyTarget}" step="0.5" min="0.5">
+                    <input type="number" id="monthlyTargetInput" value="${this.settings.monthlyTarget}" step="1" min="1">
                 </div>
                 <div class="form-group">
                     <label>Objectif annuel (% du capital):</label>
-                    <input type="number" id="yearlyTargetInput" value="${this.settings.yearlyTarget}" step="5" min="5">
+                    <input type="number" id="yearlyTargetInput" value="${this.settings.yearlyTarget}" step="10" min="10">
                 </div>
                 <div class="form-buttons">
                     <button class="btn-submit" onclick="dashboard.saveSettings()">Sauvegarder</button>
@@ -406,10 +435,11 @@ class SimpleTradingDashboard {
         const capital = parseFloat(document.getElementById('capitalInput')?.value) || 1000;
         const riskPerTrade = parseFloat(document.getElementById('riskInput')?.value) || 2;
         const dailyTarget = parseFloat(document.getElementById('dailyTargetInput')?.value) || 1;
-        const monthlyTarget = parseFloat(document.getElementById('monthlyTargetInput')?.value) || 5;
-        const yearlyTarget = parseFloat(document.getElementById('yearlyTargetInput')?.value) || 60;
+        const weeklyTarget = parseFloat(document.getElementById('weeklyTargetInput')?.value) || 3;
+        const monthlyTarget = parseFloat(document.getElementById('monthlyTargetInput')?.value) || 15;
+        const yearlyTarget = parseFloat(document.getElementById('yearlyTargetInput')?.value) || 200;
         
-        this.settings = { capital, riskPerTrade, dailyTarget, monthlyTarget, yearlyTarget };
+        this.settings = { capital, riskPerTrade, dailyTarget, weeklyTarget, monthlyTarget, yearlyTarget };
         this.accounts[this.currentAccount].capital = capital;
         this.saveData();
         this.updateStats();
@@ -730,6 +760,7 @@ class SimpleTradingDashboard {
         
         const initialCapital = this.accounts[this.currentAccount]?.capital || this.settings.capital;
         const dailyTarget = (initialCapital * this.settings.dailyTarget / 100);
+        const weeklyTarget = (initialCapital * this.settings.weeklyTarget / 100);
         const monthlyTarget = (initialCapital * this.settings.monthlyTarget / 100);
         const yearlyTarget = (initialCapital * this.settings.yearlyTarget / 100);
         
@@ -737,6 +768,18 @@ class SimpleTradingDashboard {
         const todayStr = today.toISOString().split('T')[0];
         const todayTrades = this.trades.filter(t => t.date === todayStr);
         const todayPnL = todayTrades.reduce((sum, t) => sum + parseFloat(t.pnl || 0), 0);
+        
+        // Stats de la semaine
+        const weekStart = new Date(today);
+        weekStart.setDate(today.getDate() - today.getDay());
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekStart.getDate() + 6);
+        
+        const weekTrades = this.trades.filter(t => {
+            const tradeDate = new Date(t.date);
+            return tradeDate >= weekStart && tradeDate <= weekEnd;
+        });
+        const weekPnL = weekTrades.reduce((sum, t) => sum + parseFloat(t.pnl || 0), 0);
         
         // Stats du mois
         const monthTrades = this.trades.filter(t => {
@@ -754,13 +797,28 @@ class SimpleTradingDashboard {
         
         // Mise à jour des éléments de stats s'ils existent
         this.updateElement('todayPnL', `$${todayPnL.toFixed(2)}`, todayPnL >= 0 ? 'positive' : 'negative');
+        this.updateElement('weekPnL', `$${weekPnL.toFixed(2)}`, weekPnL >= 0 ? 'positive' : 'negative');
         this.updateElement('monthPnL', `$${monthPnL.toFixed(2)}`, monthPnL >= 0 ? 'positive' : 'negative');
         this.updateElement('yearPnL', `$${yearPnL.toFixed(2)}`, yearPnL >= 0 ? 'positive' : 'negative');
         
+        // Mise à jour des cibles dans les encarts
+        this.updateElement('dailyTargetPercent', `${this.settings.dailyTarget}%`);
+        this.updateElement('dailyTarget', dailyTarget.toFixed(0));
+        this.updateElement('weeklyTargetPercent', `${this.settings.weeklyTarget}%`);
+        this.updateElement('weeklyTarget', weeklyTarget.toFixed(0));
+        this.updateElement('monthlyTargetPercent', `${this.settings.monthlyTarget}%`);
+        this.updateElement('monthlyTarget', monthlyTarget.toFixed(0));
+        this.updateElement('yearlyTargetPercent', `${this.settings.yearlyTarget}%`);
+        this.updateElement('yearlyTarget', yearlyTarget.toFixed(0));
+        
         // Progrès des objectifs
+        const dailyProgress = dailyTarget > 0 ? Math.min((todayPnL / dailyTarget) * 100, 100).toFixed(1) : 0;
+        const weekProgress = weeklyTarget > 0 ? Math.min((weekPnL / weeklyTarget) * 100, 100).toFixed(1) : 0;
         const monthProgress = monthlyTarget > 0 ? Math.min((monthPnL / monthlyTarget) * 100, 100).toFixed(1) : 0;
         const yearProgress = yearlyTarget > 0 ? Math.min((yearPnL / yearlyTarget) * 100, 100).toFixed(1) : 0;
         
+        this.updateElement('dailyProgress', `${dailyProgress}%`);
+        this.updateElement('weekProgress', `${weekProgress}%`);
         this.updateElement('monthProgress', `${monthProgress}%`);
         this.updateElement('yearProgress', `${yearProgress}%`);
         
@@ -769,8 +827,21 @@ class SimpleTradingDashboard {
         const yearReturn = ((totalPnL / initialCapital) * 100).toFixed(1);
         this.updateElement('yearReturn', `${yearReturn}%`);
         
+        // Mise à jour des barres de progression
+        const dailyProgressBar = document.getElementById('dailyProgressBar');
+        const weekProgressBar = document.getElementById('weeklyProgressBar');
         const monthProgressBar = document.getElementById('monthlyProgressBar');
         const yearProgressBar = document.getElementById('yearlyProgressBar');
+        
+        if (dailyProgressBar) {
+            dailyProgressBar.style.width = `${Math.min(dailyProgress, 100)}%`;
+            if (dailyProgress >= 100) dailyProgressBar.classList.add('completed');
+        }
+        
+        if (weekProgressBar) {
+            weekProgressBar.style.width = `${Math.min(weekProgress, 100)}%`;
+            if (weekProgress >= 100) weekProgressBar.classList.add('completed');
+        }
         
         if (monthProgressBar) {
             monthProgressBar.style.width = `${Math.min(monthProgress, 100)}%`;
@@ -818,7 +889,7 @@ class SimpleTradingDashboard {
     resetAllData() {
         if (confirm('⚠️ ATTENTION: Cette action supprimera TOUS vos trades et données. Êtes-vous sûr ?')) {
             this.trades = [];
-            this.settings = { capital: 1000, riskPerTrade: 2, dailyTarget: 1, monthlyTarget: 5, yearlyTarget: 60 };
+            this.settings = { capital: 1000, riskPerTrade: 2, dailyTarget: 1, weeklyTarget: 3, monthlyTarget: 15, yearlyTarget: 200 };
             this.accounts[this.currentAccount].capital = 1000;
             this.saveData();
             this.updateStats();
@@ -866,28 +937,63 @@ class SimpleTradingDashboard {
     switchAccount(accountId) {
         if (!accountId || accountId === this.currentAccount) return;
         
-        this.saveData();
+        // Sauvegarder les trades du compte actuel
+        if (this.accounts[this.currentAccount]) {
+            this.accounts[this.currentAccount].trades = [...this.trades];
+            this.accounts[this.currentAccount].settings = { ...this.settings };
+        }
+        
+        // Changer de compte
         this.currentAccount = accountId;
-        this.loadData();
+        
+        // Charger les données du nouveau compte
+        if (this.accounts[accountId]) {
+            this.trades = this.accounts[accountId].trades || [];
+            this.settings = this.accounts[accountId].settings || { ...this.settings, capital: this.accounts[accountId].capital };
+        }
+        
+        this.saveData();
         this.updateStats();
         this.renderTradesTable();
         this.renderCalendar();
         this.updateAccountDisplay();
+        
+        // Recréer les graphiques
+        Object.values(Chart.instances).forEach(chart => chart.destroy());
+        setTimeout(() => {
+            this.initCharts();
+            this.initGauge();
+            this.updateCalendarStats();
+        }, 100);
         
         this.showNotification(`Compte changé: ${this.accounts[accountId]?.name || accountId}`);
     }
 
     addNewAccount() {
         const name = prompt('Nom du nouveau compte:');
+        if (!name) return;
+        
         const capital = parseFloat(prompt('Capital initial ($):')) || 1000;
         
-        if (name) {
-            const accountId = 'compte' + (Object.keys(this.accounts).length + 1);
-            this.accounts[accountId] = { name, capital };
-            this.saveData();
-            this.updateAccountDisplay();
-            this.showNotification(`Compte "${name}" créé avec succès!`);
-        }
+        // Générer un ID unique pour éviter les conflits
+        let accountId;
+        let counter = Object.keys(this.accounts).length + 1;
+        do {
+            accountId = 'compte' + counter;
+            counter++;
+        } while (this.accounts[accountId]);
+        
+        // Créer le nouveau compte avec ses propres données
+        this.accounts[accountId] = { 
+            name, 
+            capital,
+            trades: [], // Chaque compte a ses propres trades
+            settings: { ...this.settings, capital } // Copie des paramètres avec le nouveau capital
+        };
+        
+        this.saveData();
+        this.updateAccountDisplay();
+        this.showNotification(`Compte "${name}" créé avec succès!`);
     }
 
     async deleteAccount() {
@@ -922,6 +1028,23 @@ class SimpleTradingDashboard {
             this.initGauge();
             
             this.showNotification(`Compte "${accountName}" supprimé définitivement`);
+        }
+    }
+
+    async cleanupOrphanedData() {
+        if (!window.firebaseDB) return;
+        
+        try {
+            const { ref, remove } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js');
+            
+            // Supprimer les données orphelines sous 'trader_vip'
+            const traderVipRef = ref(window.firebaseDB, 'dashboards/trader_vip');
+            await remove(traderVipRef);
+            
+            console.log('Données orphelines supprimées');
+            this.showNotification('Nettoyage Firebase terminé');
+        } catch (error) {
+            console.error('Erreur nettoyage:', error);
         }
     }
 

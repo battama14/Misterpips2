@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Corriger Accès VIP - Misterpips</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #1a1a2e;
+            color: white;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            border-radius: 15px;
+            border: 1px solid #00d4ff;
+        }
+        button {
+            background: linear-gradient(45deg, #00d4ff, #5b86e5);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            width: 100%;
+            margin: 10px 0;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        .success { background: rgba(78, 205, 196, 0.2); color: #4ecdc4; }
+        .error { background: rgba(255, 107, 107, 0.2); color: #ff6b6b; }
+        .info { background: rgba(0, 212, 255, 0.2); color: #00d4ff; }
+    </style>
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js';
+        import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js';
+        import { getDatabase, ref, set, get } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js';
+        
+        const firebaseConfig = {
+            apiKey: "AIzaSyDSDK0NfVSs_VQb3TnrixiJbOpTsmoUMvU",
+            authDomain: "misterpips-b71fb.firebaseapp.com",
+            databaseURL: "https://misterpips-b71fb-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "misterpips-b71fb",
+            storageBucket: "misterpips-b71fb.firebasestorage.app",
+            messagingSenderId: "574231126409",
+            appId: "1:574231126409:web:b7ed93ac4ea62e247dc158"
+        };
+        
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getDatabase(app);
+        
+        window.firebaseAuth = auth;
+        window.firebaseDB = db;
+        window.ref = ref;
+        window.set = set;
+        window.get = get;
+        window.onAuthStateChanged = onAuthStateChanged;
+    </script>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Corriger Accès VIP</h1>
+        <p>Cet outil va corriger votre accès VIP en ajoutant votre UID dans la base de données.</p>
+        
+        <button onclick="checkCurrentUser()">1️⃣ Vérifier mon statut</button>
+        <button onclick="fixVIPAccess()">2️⃣ Corriger mon accès VIP</button>
+        <button onclick="testVIPAccess()">3️⃣ Tester l'accès VIP</button>
+        
+        <div id="result"></div>
+    </div>
+
+    <script>
+        let currentUser = null;
+        
+        // Écouter l'état d'authentification
+        window.onAuthStateChanged(window.firebaseAuth, (user) => {
+            currentUser = user;
+            if (user) {
+                document.getElementById('result').innerHTML = `
+                    <div class="result info">
+                        ✅ Connecté en tant que: ${user.email}<br>
+                        🆔 UID: ${user.uid}
+                    </div>
+                `;
+            } else {
+                document.getElementById('result').innerHTML = `
+                    <div class="result error">
+                        ❌ Non connecté - Veuillez vous connecter d'abord sur index.html
+                    </div>
+                `;
+            }
+        });
+        
+        async function checkCurrentUser() {
+            const resultDiv = document.getElementById('result');
+            
+            if (!currentUser) {
+                resultDiv.innerHTML = `
+                    <div class="result error">
+                        ❌ Vous devez être connecté pour vérifier votre statut<br>
+                        👉 Allez sur index.html et connectez-vous d'abord
+                    </div>
+                `;
+                return;
+            }
+            
+            try {
+                // Vérifier dans la base de données
+                const userRef = window.ref(window.firebaseDB, `users/${currentUser.uid}`);
+                const snapshot = await window.get(userRef);
+                
+                if (snapshot.exists()) {
+                    const userData = snapshot.val();
+                    resultDiv.innerHTML = `
+                        <div class="result success">
+                            ✅ Utilisateur trouvé dans la base<br>
+                            📧 Email: ${userData.email}<br>
+                            👑 VIP: ${userData.isVIP ? 'OUI' : 'NON'}<br>
+                            📦 Plan: ${userData.plan || 'Non défini'}
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="result error">
+                            ❌ Utilisateur non trouvé dans la base de données<br>
+                            🔧 Utilisez "Corriger mon accès VIP" pour résoudre le problème
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="result error">
+                        ❌ Erreur: ${error.message}
+                    </div>
+                `;
+            }
+        }
+        
+        async function fixVIPAccess() {
+            const resultDiv = document.getElementById('result');
+            
+            if (!currentUser) {
+                resultDiv.innerHTML = `
+                    <div class="result error">
+                        ❌ Vous devez être connecté pour corriger l'accès
+                    </div>
+                `;
+                return;
+            }
+            
+            resultDiv.innerHTML = '<div class="result info">🔄 Correction en cours...</div>';
+            
+            try {
+                // Ajouter/Mettre à jour les données VIP
+                const userRef = window.ref(window.firebaseDB, `users/${currentUser.uid}`);
+                await window.set(userRef, {
+                    email: currentUser.email,
+                    isVIP: true,
+                    plan: 'VIP',
+                    subscriptionDate: new Date().toISOString(),
+                    status: 'active',
+                    fixedAt: new Date().toISOString()
+                });
+                
+                resultDiv.innerHTML = `
+                    <div class="result success">
+                        ✅ <strong>Accès VIP corrigé avec succès !</strong><br>
+                        📧 Email: ${currentUser.email}<br>
+                        🆔 UID: ${currentUser.uid}<br>
+                        👑 Statut VIP: Activé<br>
+                        🎯 Vous pouvez maintenant accéder à l'espace VIP
+                    </div>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="result error">
+                        ❌ Erreur lors de la correction: ${error.message}
+                    </div>
+                `;
+            }
+        }
+        
+        async function testVIPAccess() {
+            const resultDiv = document.getElementById('result');
+            
+            if (!currentUser) {
+                resultDiv.innerHTML = `
+                    <div class="result error">
+                        ❌ Vous devez être connecté pour tester l'accès
+                    </div>
+                `;
+                return;
+            }
+            
+            try {
+                // Vérifier le statut VIP
+                const userRef = window.ref(window.firebaseDB, `users/${currentUser.uid}`);
+                const snapshot = await window.get(userRef);
+                
+                if (snapshot.exists()) {
+                    const userData = snapshot.val();
+                    if (userData.isVIP === true) {
+                        resultDiv.innerHTML = `
+                            <div class="result success">
+                                ✅ <strong>Test réussi !</strong><br>
+                                👑 Statut VIP confirmé<br>
+                                🚀 <a href="vip-space.html" style="color: #00d4ff;">Cliquez ici pour accéder à l'espace VIP</a>
+                            </div>
+                        `;
+                    } else {
+                        resultDiv.innerHTML = `
+                            <div class="result error">
+                                ❌ Statut VIP non confirmé<br>
+                                🔧 Utilisez "Corriger mon accès VIP"
+                            </div>
+                        `;
+                    }
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="result error">
+                            ❌ Données utilisateur non trouvées<br>
+                            🔧 Utilisez "Corriger mon accès VIP"
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="result error">
+                        ❌ Erreur test: ${error.message}
+                    </div>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>

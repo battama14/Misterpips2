@@ -10,11 +10,12 @@
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js';
         import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js';
-        import { getFirestore, doc, setDoc, getDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js';
+        import { getDatabase, ref, set, get, onValue } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js';
         
         const firebaseConfig = {
             apiKey: "AIzaSyDSDK0NfVSs_VQb3TnrixiJbOpTsmoUMvU",
             authDomain: "misterpips-b71fb.firebaseapp.com",
+            databaseURL: "https://misterpips-b71fb-default-rtdb.europe-west1.firebasedatabase.app",
             projectId: "misterpips-b71fb",
             storageBucket: "misterpips-b71fb.firebasestorage.app",
             messagingSenderId: "574231126409",
@@ -23,7 +24,7 @@
         
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
-        const db = getFirestore(app);
+        const db = getDatabase(app);
         
         // Activer Firebase avec authentification existante
         window.firebaseDB = db;
@@ -113,6 +114,7 @@
                 <button id="resetBtn" class="btn-danger">Reset Données</button>
                 <button id="manualCloseBtn" class="btn-warning">🎯 Clôture Manuelle</button>
                 <button id="exportBtn" class="btn-info">📊 Export Excel</button>
+                <button id="cleanupBtn" class="btn-warning">🧹 Nettoyer Firebase</button>
             </div>
 
             <div class="charts-section">
@@ -170,9 +172,21 @@
                 <h2>🎯 Plan de Trading & Objectifs</h2>
                 <div class="plan-stats">
                     <div class="plan-card">
+                        <h4>☀️ Objectif Journalier</h4>
+                        <div class="target-info">
+                            <div class="target-amount">Cible: <span id="dailyTargetPercent">1%</span> : $<span id="dailyTarget">10</span></div>
+                            <div class="target-progress">
+                                <div class="progress-bar">
+                                    <div class="progress-fill" id="dailyProgressBar" style="width: 0%"></div>
+                                </div>
+                                <span id="dailyProgress">0%</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="plan-card">
                         <h4>📊 Objectif Mensuel</h4>
                         <div class="target-info">
-                            <div class="target-amount">Cible: $<span id="monthlyTarget">50</span></div>
+                            <div class="target-amount">Cible: <span id="monthlyTargetPercent">15%</span> : $<span id="monthlyTarget">150</span></div>
                             <div class="target-progress">
                                 <div class="progress-bar">
                                     <div class="progress-fill" id="monthlyProgressBar" style="width: 0%"></div>
@@ -182,9 +196,21 @@
                         </div>
                     </div>
                     <div class="plan-card">
+                        <h4>📅 Objectif Hebdomadaire</h4>
+                        <div class="target-info">
+                            <div class="target-amount">Cible: <span id="weeklyTargetPercent">3%</span> : $<span id="weeklyTarget">30</span></div>
+                            <div class="target-progress">
+                                <div class="progress-bar">
+                                    <div class="progress-fill" id="weeklyProgressBar" style="width: 0%"></div>
+                                </div>
+                                <span id="weekProgress">0%</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="plan-card">
                         <h4>🎯 Objectif Annuel</h4>
                         <div class="target-info">
-                            <div class="target-amount">Cible: $<span id="yearlyTarget">600</span></div>
+                            <div class="target-amount">Cible: <span id="yearlyTargetPercent">200%</span> : $<span id="yearlyTarget">2000</span></div>
                             <div class="target-progress">
                                 <div class="progress-bar">
                                     <div class="progress-fill" id="yearlyProgressBar" style="width: 0%"></div>
@@ -198,6 +224,16 @@
                         <div class="return-info">
                             <div class="return-value" id="yearReturn">0%</div>
                             <div class="return-label">du capital initial</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Classement VIP en Temps Réel -->
+                    <div class="plan-card">
+                        <h4>🏆 Classement VIP Journalier</h4>
+                        <div class="vip-ranking-content">
+                            <div class="ranking-list" id="rankingList">
+                                <!-- Le classement sera chargé ici -->
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -353,6 +389,7 @@
         </div>
     </div>
 
+    <script src="simple-vip-security.js"></script>
     <script src="dashboard-script-working.js"></script>
     <script>
         document.getElementById('historyTradeBtn').addEventListener('click', () => {
@@ -586,5 +623,206 @@
     <div style="position: fixed; top: 20px; right: 20px; z-index: 1000;">
         <button onclick="window.location.href='vip-space.html'" style="background: rgba(0, 212, 255, 0.8); color: white; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; backdrop-filter: blur(10px); transition: all 0.3s ease;">🔙 Retour VIP</button>
     </div>
+    
+    <script>
+        // Gestionnaire du classement VIP simplifié
+        class VIPRanking {
+            constructor() {
+                this.currentUser = sessionStorage.getItem('firebaseUID') || 'trader_vip';
+                this.userEmail = sessionStorage.getItem('userEmail') || 'Utilisateur';
+                this.loadRanking();
+                
+                // Actualiser plus fréquemment (toutes les 10 secondes)
+                setInterval(() => this.loadRanking(), 10000);
+                
+                // Écouter les changements Firebase en temps réel
+                this.setupRealtimeListener();
+            }
+            
+            async setupRealtimeListener() {
+                try {
+                    if (window.firebaseDB) {
+                        const { ref, onValue } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js');
+                        
+                        // Écouter les changements sur les données de trading
+                        const tradingDataRef = ref(window.firebaseDB, 'trading_data');
+                        onValue(tradingDataRef, () => {
+                            console.log('Trading data changed, updating ranking...');
+                            this.loadRanking();
+                        });
+                        
+                        // Écouter les changements sur les utilisateurs
+                        const usersRef = ref(window.firebaseDB, 'users');
+                        onValue(usersRef, () => {
+                            console.log('Users data changed, updating ranking...');
+                            this.loadRanking();
+                        });
+                    }
+                } catch (error) {
+                    console.error('Error setting up realtime listener:', error);
+                }
+            }
+            
+            async loadRanking() {
+                const rankingList = document.getElementById('rankingList');
+                
+                try {
+                    rankingList.innerHTML = '<div class="ranking-loading">🔄 Chargement...</div>';
+                    
+                    if (window.firebaseDB) {
+                        const { ref, get } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js');
+                        const usersRef = ref(window.firebaseDB, 'users');
+                        const snapshot = await get(usersRef);
+                        
+                        if (snapshot.exists()) {
+                            const users = snapshot.val();
+                            const rankings = await this.calculateRankings(users);
+                            this.displayRanking(rankings);
+                        } else {
+                            this.showFallbackRanking();
+                        }
+                    } else {
+                        this.showFallbackRanking();
+                    }
+                } catch (error) {
+                    console.error('Erreur:', error);
+                    this.showFallbackRanking();
+                }
+            }
+            
+            async calculateRankings(users) {
+                const today = new Date().toISOString().split('T')[0];
+                const rankings = [];
+                
+                for (const [userId, userData] of Object.entries(users)) {
+                    if (userData.isVIP) {
+                        const { dailyPnL, tradeCount } = await this.getUserStats(userId, today);
+                        rankings.push({
+                            name: this.getDisplayName(userData.email),
+                            dailyPnL,
+                            tradeCount,
+                            userId
+                        });
+                    }
+                }
+                
+                rankings.sort((a, b) => b.dailyPnL - a.dailyPnL);
+                return rankings;
+            }
+            
+            async getUserStats(userId, date) {
+                try {
+                    if (window.firebaseDB) {
+                        const { ref, get } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js');
+                        
+                        // Essayer plusieurs chemins possibles pour les trades
+                        const paths = [
+                            `trading_data/${userId}/trades`,
+                            `users/${userId}/trades`,
+                            `trades/${userId}`,
+                            `user_trades/${userId}`
+                        ];
+                        
+                        for (const path of paths) {
+                            const tradesRef = ref(window.firebaseDB, path);
+                            const snapshot = await get(tradesRef);
+                            
+                            if (snapshot.exists()) {
+                                const trades = Object.values(snapshot.val());
+                                const todayTrades = trades.filter(trade => {
+                                    return trade.date === date && 
+                                           (trade.status === 'closed' || trade.status === 'completed');
+                                });
+                                const dailyPnL = todayTrades.reduce((total, trade) => {
+                                    return total + (parseFloat(trade.pnl) || 0);
+                                }, 0);
+                                console.log(`Found ${todayTrades.length} trades for ${userId} on ${date}, P&L: ${dailyPnL}`);
+                                return { dailyPnL, tradeCount: todayTrades.length };
+                            }
+                        }
+                        
+                        // Si aucun chemin ne fonctionne, vérifier les données locales
+                        const localData = localStorage.getItem(`dashboard_${userId}`);
+                        if (localData) {
+                            const data = JSON.parse(localData);
+                            if (data.trades) {
+                                const todayTrades = data.trades.filter(trade => {
+                                    return trade.date === date && 
+                                           (trade.status === 'closed' || trade.status === 'completed');
+                                });
+                                const dailyPnL = todayTrades.reduce((total, trade) => {
+                                    return total + (parseFloat(trade.pnl) || 0);
+                                }, 0);
+                                console.log(`Found ${todayTrades.length} local trades for ${userId} on ${date}, P&L: ${dailyPnL}`);
+                                return { dailyPnL, tradeCount: todayTrades.length };
+                            }
+                        }
+                    }
+                    return { dailyPnL: 0, tradeCount: 0 };
+                } catch (error) {
+                    console.error(`Error getting stats for ${userId}:`, error);
+                    return { dailyPnL: 0, tradeCount: 0 };
+                }
+            }
+            
+            getDisplayName(email) {
+                if (!email) return 'Membre VIP';
+                const name = email.split('@')[0];
+                return name.charAt(0).toUpperCase() + name.slice(1);
+            }
+            
+            displayRanking(rankings) {
+                const rankingList = document.getElementById('rankingList');
+                
+                console.log('Displaying ranking:', rankings);
+                
+                if (rankings.length === 0) {
+                    rankingList.innerHTML = '<div class="ranking-loading">Aucune donnée aujourd\'hui</div>';
+                    return;
+                }
+                
+                let html = '';
+                rankings.forEach((trader, index) => {
+                    const isCurrentUser = trader.userId === this.currentUser;
+                    const userClass = isCurrentUser ? ' current-user' : '';
+                    
+                    // Appliquer directement les couleurs
+                    let pnlColor = '#ffc107'; // jaune pour neutre
+                    if (trader.dailyPnL > 0) pnlColor = '#00ff00'; // vert pour positif
+                    if (trader.dailyPnL < 0) pnlColor = '#ff0000'; // rouge pour négatif
+                    
+                    html += `
+                        <div class="ranking-item${userClass}">
+                            <span class="trader-name">${trader.name}${isCurrentUser ? ' (Vous)' : ''}</span>
+                            <span class="trade-count">${trader.tradeCount} trades</span>
+                            <span class="trader-pnl" style="color: ${pnlColor} !important;">$${trader.dailyPnL.toFixed(2)}</span>
+                        </div>
+                    `;
+                });
+                
+                rankingList.innerHTML = html;
+            }
+            
+            showFallbackRanking() {
+                const demoRankings = [
+                    { name: 'Trader Pro', dailyPnL: 250.50, tradeCount: 8 },
+                    { name: 'Expert FX', dailyPnL: 180.25, tradeCount: 5 },
+                    { name: 'Master Pips', dailyPnL: 120.75, tradeCount: 12 },
+                    { name: this.getDisplayName(this.userEmail), dailyPnL: 0, tradeCount: 0 },
+                    { name: 'Scalper King', dailyPnL: -45.30, tradeCount: 15 }
+                ];
+                
+                demoRankings.sort((a, b) => b.dailyPnL - a.dailyPnL);
+                this.displayRanking(demoRankings);
+            }
+        }
+        
+        // Initialiser le classement VIP quand la page est chargée
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => {
+                new VIPRanking();
+            }, 1000);
+        });
+    </script>
 </body>
 </html>

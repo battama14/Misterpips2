@@ -1048,3 +1048,175 @@ h1 .highlight {
     border-width: 0 2px 2px 0;
     transform: rotate(45deg);
 }
+
+/* Popup personnalisée stylée */
+.custom-popup {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+}
+
+.custom-popup.show {
+    opacity: 1;
+    visibility: visible;
+}
+
+.popup-content {
+    background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
+    border: 2px solid #00d4ff;
+    border-radius: 20px;
+    padding: 40px;
+    text-align: center;
+    max-width: 400px;
+    width: 90%;
+    box-shadow: 0 20px 60px rgba(0, 212, 255, 0.4);
+    transform: scale(0.7);
+    transition: all 0.3s ease;
+}
+
+.custom-popup.show .popup-content {
+    transform: scale(1);
+}
+
+.popup-icon {
+    font-size: 48px;
+    color: #00d4ff;
+    margin-bottom: 20px;
+    animation: pulse 2s infinite;
+}
+
+.popup-title {
+    color: #00d4ff;
+    font-size: 24px;
+    font-weight: bold;
+    margin-bottom: 15px;
+    text-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+}
+
+.popup-message {
+    color: #ffffff;
+    font-size: 16px;
+    margin-bottom: 30px;
+    line-height: 1.5;
+}
+
+.popup-button {
+    background: linear-gradient(45deg, #00d4ff, #5b86e5);
+    color: white;
+    border: none;
+    padding: 12px 30px;
+    border-radius: 25px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 5px 15px rgba(0, 212, 255, 0.3);
+}
+
+.popup-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 212, 255, 0.5);
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+/* Styles pour le classement VIP simplifié */
+.vip-ranking-content {
+    margin-top: 15px;
+}
+
+.ranking-list {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.ranking-item {
+    display: flex;
+    align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(0, 212, 255, 0.1);
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.ranking-item:last-child {
+    border-bottom: none;
+}
+
+.trader-name {
+    color: white;
+    font-weight: 500;
+    width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.trade-count {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 11px;
+    width: 50px;
+    text-align: center;
+    margin: 0 10px;
+}
+
+.trader-pnl {
+    font-weight: bold;
+    font-size: 12px;
+    width: 60px;
+    text-align: right;
+}
+
+.pnl-positive { color: #00ff00 !important; }
+.pnl-negative { color: #ff0000 !important; }
+.pnl-neutral { color: #ffc107 !important; }
+
+/* Styles spécifiques pour le classement VIP */
+.ranking-item .trader-pnl.pnl-positive { color: #00ff00 !important; }
+.ranking-item .trader-pnl.pnl-negative { color: #ff0000 !important; }
+.ranking-item .trader-pnl.pnl-neutral { color: #ffc107 !important; }
+
+.ranking-loading {
+    text-align: center;
+    padding: 20px;
+    color: rgba(255, 255, 255, 0.6);
+    font-style: italic;
+}
+
+/* Scrollbar pour la liste */
+.ranking-list::-webkit-scrollbar {
+    width: 4px;
+}
+
+.ranking-list::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+}
+
+.ranking-list::-webkit-scrollbar-thumb {
+    background: rgba(0, 212, 255, 0.5);
+    border-radius: 2px;
+}
+
+.ranking-list::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 212, 255, 0.7);
+}
+.ranking-item.current-user {
+    background: rgba(0, 212, 255, 0.1);
+    border-radius: 4px;
+    padding: 6px 8px;
+}

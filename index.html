@@ -14,6 +14,7 @@
         const firebaseConfig = {
             apiKey: "AIzaSyDSDK0NfVSs_VQb3TnrixiJbOpTsmoUMvU",
             authDomain: "misterpips-b71fb.firebaseapp.com",
+            databaseURL: "https://misterpips-b71fb-default-rtdb.europe-west1.firebasedatabase.app",
             projectId: "misterpips-b71fb",
             storageBucket: "misterpips-b71fb.firebasestorage.app",
             messagingSenderId: "574231126409",
@@ -286,19 +287,10 @@
                             <div class="calendar-widget">
                                 <!-- Widget Investing.com alternatif -->
                                 <div id="economicCalendarWidget">
-                                    <!-- TradingView Economic Calendar Widget -->
-                                    <div class="tradingview-widget-container">
-                                        <div class="tradingview-widget-container__widget"></div>
-                                        <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-events.js" async>
-                                        {
-                                            "colorTheme": "dark",
-                                            "isTransparent": false,
-                                            "width": "100%",
-                                            "height": "400",
-                                            "locale": "fr",
-                                            "importanceFilter": "-1,0,1"
-                                        }
-                                        </script>
+                                    <!-- Calendrier économique simplifié -->
+                                    <div class="calendar-simple">
+                                        <h4>📅 Calendrier Économique</h4>
+                                        <p>Consultez les événements économiques importants :</p>
                                     </div>
                                     
                                     <!-- Fallback: liens directs si le widget ne se charge pas -->
@@ -408,16 +400,50 @@
 
     <script src="script-simple.js"></script>
     <script type="module">
+        import { getDatabase, ref, set } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js';
+        import { setPersistence, browserSessionPersistence } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js';
+        
+        // Définir la persistance
+        await setPersistence(window.firebaseAuth.auth, browserSessionPersistence);
+        
         document.getElementById('vip-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const email = document.getElementById('vip-email').value;
             const password = document.getElementById('vip-password').value;
             
             try {
-                await window.firebaseAuth.signInWithEmailAndPassword(window.firebaseAuth.auth, email, password);
-                window.location.href = 'vip-space.html';
+                const userCredential = await window.firebaseAuth.signInWithEmailAndPassword(window.firebaseAuth.auth, email, password);
+                const user = userCredential.user;
+                
+                // Forcer le stockage des données de session
+                sessionStorage.setItem('firebaseUID', user.uid);
+                sessionStorage.setItem('userEmail', user.email);
+                sessionStorage.setItem('authenticated', 'true');
+                sessionStorage.setItem('isVIP', 'true');
+                
+                // Ajouter automatiquement le statut VIP dans Realtime Database
+                const db = getDatabase();
+                const userRef = ref(db, `users/${user.uid}`);
+                await set(userRef, {
+                    email: user.email,
+                    isVIP: true,
+                    plan: 'VIP',
+                    subscriptionDate: new Date().toISOString(),
+                    status: 'active',
+                    autoCreated: true,
+                    timestamp: Date.now()
+                });
+                
+                // Attendre la synchronisation
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                // Rediriger vers l'espace VIP avec confirmation
+                showCustomPopup('Bienvenu dans la famille VIP - Misterpips', () => {
+                    window.location.href = 'vip-space.html';
+                });
             } catch (error) {
-                alert('Identifiants incorrects');
+                console.error('Erreur connexion:', error);
+                alert('Identifiants incorrects: ' + error.message);
             }
         });
     </script>
@@ -703,6 +729,36 @@
                     grid.innerHTML = '<p class="error-message">Erreur de chargement des actualités</p>';
                 }
             }
+        }
+    </script>
+    
+    <!-- Popup personnalisée -->
+    <div id="customPopup" class="custom-popup">
+        <div class="popup-content">
+            <div class="popup-icon">
+                <i class="fas fa-crown"></i>
+            </div>
+            <div class="popup-title">Félicitations !</div>
+            <div class="popup-message" id="popupMessage"></div>
+            <button class="popup-button" id="popupButton">Continuer</button>
+        </div>
+    </div>
+    
+    <script>
+        function showCustomPopup(message, callback) {
+            const popup = document.getElementById('customPopup');
+            const messageEl = document.getElementById('popupMessage');
+            const button = document.getElementById('popupButton');
+            
+            messageEl.textContent = message;
+            popup.classList.add('show');
+            
+            button.onclick = () => {
+                popup.classList.remove('show');
+                setTimeout(() => {
+                    if (callback) callback();
+                }, 300);
+            };
         }
     </script>
 </body>
