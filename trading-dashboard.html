@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="mobile-responsive.css">
     <link rel="stylesheet" href="ict-matrix-styles.css">
     <link rel="stylesheet" href="chat-mobile-styles.css">
+    <link rel="stylesheet" href="chat-optimized.css">
     <link rel="stylesheet" href="mobile-fixes.css">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#00d4ff">
@@ -556,6 +557,80 @@
     </script>
 
     <style>
+        /* CSS EMOJI PANEL - ULTRA SIMPLE */
+        .emoji-picker-panel {
+            position: absolute !important;
+            bottom: 50px !important;
+            left: 0 !important;
+            width: 300px !important;
+            max-height: 400px !important;
+            background: #1a1a2e !important;
+            border: 2px solid #00d4ff !important;
+            border-radius: 10px !important;
+            z-index: 9999 !important;
+            display: none !important;
+            overflow: hidden !important;
+        }
+        
+        .emoji-header {
+            padding: 10px !important;
+            background: rgba(0, 212, 255, 0.1) !important;
+            border-bottom: 1px solid #00d4ff !important;
+            display: flex !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+        }
+        
+        .emoji-title {
+            color: #00d4ff !important;
+            font-weight: bold !important;
+            font-size: 14px !important;
+        }
+        
+        .emoji-close {
+            background: none !important;
+            border: none !important;
+            color: #ff6b6b !important;
+            font-size: 18px !important;
+            cursor: pointer !important;
+            padding: 0 !important;
+            width: 20px !important;
+            height: 20px !important;
+        }
+        
+        .emoji-grid {
+            padding: 10px !important;
+            display: grid !important;
+            grid-template-columns: repeat(8, 1fr) !important;
+            gap: 5px !important;
+            max-height: 250px !important;
+            overflow-y: auto !important;
+        }
+        
+        .emoji-item {
+            background: none !important;
+            border: none !important;
+            font-size: 20px !important;
+            padding: 8px !important;
+            cursor: pointer !important;
+            border-radius: 5px !important;
+            transition: all 0.2s ease !important;
+        }
+        
+        .emoji-item:hover {
+            background: rgba(0, 212, 255, 0.2) !important;
+            transform: scale(1.2) !important;
+        }
+        
+        .emoji-footer {
+            padding: 8px 10px !important;
+            background: rgba(0, 212, 255, 0.05) !important;
+            border-top: 1px solid rgba(0, 212, 255, 0.2) !important;
+            font-size: 12px !important;
+            color: #888 !important;
+            text-align: center !important;
+        }
+        
         .btn-success {
             background: linear-gradient(135deg, #4ecdc4, #44a08d);
             color: white;
@@ -641,14 +716,16 @@
     </style>
     
     <!-- Bouton de retour VIP -->
-    <div style="position: fixed; top: 20px; right: 20px; z-index: 1000;">
+    <div style="position: fixed; top: 20px; left: 20px; z-index: 500;">
         <button onclick="window.location.href='vip-space.html'" style="background: rgba(0, 212, 255, 0.8); color: white; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; backdrop-filter: blur(10px); transition: all 0.3s ease;">🔙 Retour VIP</button>
     </div>
+    
+
     
     <!-- Bouton Chat Flottant -->
     <div id="chatToggle" class="chat-toggle">
         💬
-        <span class="chat-badge" id="chatBadge">0</span>
+        <span class="chat-badge" id="chatBadge" style="display: none;">0</span>
     </div>
     
     <!-- Fenêtre Chat Flottante -->
@@ -663,26 +740,30 @@
         <div class="chat-messages" id="chatMessages"></div>
         <div class="chat-input-area">
             <div class="chat-toolbar">
-                <button class="tool-btn" id="emojiToggle">😀</button>
+                <button class="tool-btn" id="emojiToggle" onclick="window.toggleEmojiPanel(); console.log('Bouton emoji cliqué');">😀</button>
                 <button class="tool-btn" id="fileBtn">📁</button>
                 <button class="tool-btn" id="gifBtn">GIF</button>
             </div>
             <div class="emoji-picker-panel" id="emojiPanel">
+                <div class="emoji-header">
+                    <span class="emoji-title">Choisir un emoji</span>
+                    <button class="emoji-close" id="emojiClose" onclick="document.getElementById('emojiPanel').style.display='none'; console.log('Fermeture emoji panel');">×</button>
+                </div>
                 <div class="emoji-categories">
-                    <button class="emoji-cat active" data-cat="smileys">😀</button>
-                    <button class="emoji-cat" data-cat="people">👍</button>
-                    <button class="emoji-cat" data-cat="nature">🌱</button>
-                    <button class="emoji-cat" data-cat="food">🍔</button>
-                    <button class="emoji-cat" data-cat="travel">✈️</button>
-                    <button class="emoji-cat" data-cat="objects">💰</button>
-                    <button class="emoji-cat" data-cat="symbols">❤️</button>
+                    <button class="emoji-cat active" onclick="window.loadSimpleEmojis()" title="Tous les emojis">😀</button>
+                </div>
+                <div class="emoji-search">
+                    <input type="text" id="emojiSearch" placeholder="Rechercher..." maxlength="20">
                 </div>
                 <div class="emoji-grid" id="emojiGrid"></div>
+                <div class="emoji-footer">
+                    <span class="emoji-count" id="emojiCount">0 emojis</span>
+                </div>
             </div>
             <input type="file" id="fileInput" accept="image/*,audio/*" style="display: none;">
             <div class="input-container">
                 <input type="text" id="chatInput" placeholder="Tapez votre message..." maxlength="200">
-                <button id="sendMessage" class="send-btn">➤</button>
+                <button id="sendMessage" class="send-btn" type="button">📤</button>
             </div>
         </div>
     </div>
@@ -704,6 +785,93 @@
     </div>
     
     <script>
+        // EMOJIS - Version Ultra Simple qui Fonctionne
+        window.toggleEmojiPanel = function() {
+            console.log('🎯 Toggle emoji appelé');
+            const panel = document.getElementById('emojiPanel');
+            if (panel) {
+                const isVisible = panel.style.display === 'block';
+                if (isVisible) {
+                    panel.style.display = 'none';
+                    console.log('✅ Panel emoji: fermé');
+                } else {
+                    panel.style.display = 'block';
+                    panel.style.position = 'absolute';
+                    panel.style.bottom = '50px';
+                    panel.style.left = '0';
+                    panel.style.zIndex = '9999';
+                    window.loadSimpleEmojis();
+                    console.log('✅ Panel emoji: ouvert avec styles forcés');
+                }
+            } else {
+                console.error('❌ Panel emoji introuvable');
+            }
+        };
+        
+        window.addEmojiToChat = function(emoji) {
+            console.log('🎯 Ajout emoji au chat:', emoji);
+            const input = document.getElementById('chatInput');
+            if (input) {
+                input.value += emoji;
+                input.focus();
+                console.log('✅ Emoji ajouté, input value:', input.value);
+            } else {
+                console.error('❌ Input chat introuvable');
+            }
+            const panel = document.getElementById('emojiPanel');
+            if (panel) {
+                panel.style.display = 'none';
+                console.log('✅ Panel fermé après ajout');
+            }
+        };
+        
+        window.loadSimpleEmojis = function() {
+            const grid = document.getElementById('emojiGrid');
+            if (!grid) {
+                console.error('❌ Grid emoji introuvable');
+                return;
+            }
+            
+            const emojis = ['😀', '😁', '😂', '🤣', '😃', '😄', '😅', '😆', '😉', '😊', '😋', '😎', '😍', '🥰', '😘', '😗', '😙', '😚', '🙂', '🤗', '🤔', '😐', '😑', '😶', '🙄', '😏', '😣', '😥', '😮', '🤐', '👍', '👎', '👌', '✌️', '🤞', '👊', '✊', '👏', '🙏', '💪', '❤️', '💛', '💚', '💙', '💜', '🖤', '🤍', '💰', '🚀', '🎉'];
+            
+            grid.innerHTML = '';
+            emojis.forEach(emoji => {
+                const btn = document.createElement('button');
+                btn.className = 'emoji-item';
+                btn.textContent = emoji;
+                btn.style.cssText = 'background: none !important; border: none !important; font-size: 20px !important; padding: 8px !important; cursor: pointer !important; border-radius: 5px !important;';
+                btn.onclick = function() { 
+                    console.log('🎯 Emoji cliqué:', emoji);
+                    window.addEmojiToChat(emoji); 
+                };
+                btn.onmouseover = function() {
+                    btn.style.background = 'rgba(0, 212, 255, 0.2) !important';
+                    btn.style.transform = 'scale(1.2)';
+                };
+                btn.onmouseout = function() {
+                    btn.style.background = 'none !important';
+                    btn.style.transform = 'scale(1)';
+                };
+                grid.appendChild(btn);
+            });
+            
+            // Mettre à jour le compteur
+            const emojiCount = document.getElementById('emojiCount');
+            if (emojiCount) {
+                emojiCount.textContent = `${emojis.length} emojis`;
+            }
+            
+            console.log('✅ Emojis chargés avec styles:', emojis.length);
+        };
+        
+        // Initialiser dès que possible
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(function() {
+                console.log('🚀 Initialisation emojis...');
+                window.loadSimpleEmojis();
+            }, 1000);
+        });
+        
         // Gestionnaire du classement VIP simplifié
         class VIPRanking {
             constructor() {
@@ -990,8 +1158,48 @@
             setTimeout(() => {
                 new VIPRanking();
                 new VIPChat();
+                
+                // Test direct des emojis
+                setTimeout(() => {
+                    console.log('Test direct des emojis...');
+                    const emojiToggle = document.getElementById('emojiToggle');
+                    const emojiPanel = document.getElementById('emojiPanel');
+                    console.log('EmojiToggle:', emojiToggle);
+                    console.log('EmojiPanel:', emojiPanel);
+                    
+                    if (emojiToggle && emojiPanel) {
+                        console.log('Elements trouvés, initialisation directe...');
+                        setupEmojisDirect();
+                    }
+                }, 2000);
             }, 1000);
         });
+        
+        // Fonctions emoji simplifiées déjà définies plus haut
+        
+        function loadBasicEmojis() {
+            const emojiGrid = document.getElementById('emojiGrid');
+            if (!emojiGrid) return;
+            
+            const basicEmojis = ['😀', '😁', '😂', '🤣', '😃', '😄', '😅', '😆', '😉', '😊', '😋', '😎', '😍', '🥰', '😘', '😗', '😙', '😚', '🙂', '🤗', '🤔', '😐', '😑', '😶', '🙄', '😏', '😣', '😥', '😮', '🤐', '👍', '👎', '👌', '❤️', '💚', '💙', '💜', '💰', '🚀', '🎉', '🎆', '🎈'];
+            
+            emojiGrid.innerHTML = '';
+            basicEmojis.forEach(emoji => {
+                const btn = document.createElement('button');
+                btn.className = 'emoji-item';
+                btn.textContent = emoji;
+                btn.onclick = function() {
+                    addEmojiToChat(emoji);
+                };
+                emojiGrid.appendChild(btn);
+            });
+        }
+        
+        // Setup direct des emojis
+        function setupEmojisDirect() {
+            console.log('Setup emojis direct...');
+            loadBasicEmojis();
+        }
         
         // Système de Chat VIP
         class VIPChat {
@@ -1177,11 +1385,13 @@
                 this.messageCount = 0;
                 this.lastMessageTime = parseInt(localStorage.getItem('lastChatCheck')) || 0;
                 
-                // Initialiser le badge à zéro
+                // Initialiser le badge
                 const badge = document.getElementById('chatBadge');
                 if (badge) {
+                    this.unreadCount = 0;
                     badge.textContent = '0';
                     badge.style.display = 'none';
+                    badge.classList.add('pulse-animation');
                 }
                 
                 // Gestionnaires d'événements avec vérifications
@@ -1213,12 +1423,20 @@
                 });
                 
                 chatToggle.addEventListener('click', () => {
+                    const isOpening = !chatWindow.classList.contains('show');
                     chatWindow.classList.toggle('show');
-                    if (chatWindow.classList.contains('show')) {
+                    
+                    if (isOpening) {
                         this.resetBadge();
+                        this.markMessagesAsRead();
                         // Focus sur l'input après ouverture
                         setTimeout(() => {
                             chatInput.focus();
+                            // Scroll vers le bas
+                            const chatMessages = document.getElementById('chatMessages');
+                            if (chatMessages) {
+                                chatMessages.scrollTop = chatMessages.scrollHeight;
+                            }
                         }, 300);
                     }
                 });
@@ -1244,14 +1462,13 @@
                 // Initialiser les nouvelles fonctionnalités
                 setTimeout(() => {
                     try {
-                        initEmojiPicker();
-                        initFileUpload();
-                        initGifSearch();
+                        console.log('Initialisation des fonctionnalités chat...');
                         window.vipChat = this;
+                        console.log('Fonctionnalités chat initialisées');
                     } catch (error) {
                         console.error('Erreur initialisation fonctionnalités chat:', error);
                     }
-                }, 100);
+                }, 500);
             }
             
             async sendMessage() {
@@ -1372,10 +1589,18 @@
                     msg.timestamp > this.lastMessageTime && msg.userId !== this.currentUser
                 );
                 
-                if (newMessages.length > 0 && !document.getElementById('chatWindow').classList.contains('show')) {
-                    this.updateBadge(newMessages.length);
-                    this.playNotificationSound();
-                    this.showPushNotification(newMessages[newMessages.length - 1]);
+                const chatWindow = document.getElementById('chatWindow');
+                const isChatOpen = chatWindow && chatWindow.classList.contains('show');
+                
+                if (newMessages.length > 0) {
+                    if (!isChatOpen) {
+                        this.updateBadge(newMessages.length);
+                        this.playNotificationSound();
+                        this.showPushNotification(newMessages[newMessages.length - 1]);
+                    } else {
+                        // Si le chat est ouvert, marquer comme lu automatiquement
+                        this.markMessagesAsRead();
+                    }
                 }
                 
                 let html = '';
@@ -1458,22 +1683,21 @@
             }
         }
         
-        // Système d'émojis complet
+        // Système d'émojis complet et optimisé
         const emojiData = {
-            smileys: ['😀', '😁', '😂', '😃', '😄', '😅', '😆', '😉', '😊', '😋', '😎', '😍', '😘', '😗', '😙', '😚', '🙂', '🤗', '🤔', '😐', '😑', '😶', '🙄', '😏', '😣', '😥', '😮', '🤐', '😯'],
-            people: ['👍', '👎', '👌', '✌️', '🤞', '🤟', '🤘', '👊', '✊', '👐', '🙏', '✍️', '💪', '🦾', '🦵', '🦶', '👶', '👧', '👦', '👩', '👨', '👴', '👵', '👱', '👳', '👷'],
-            nature: ['🌱', '🌲', '🌳', '🌴', '🌵', '🌷', '🌸', '🌹', '🌺', '🌻', '🌼', '🌽', '🌾', '🌿', '☘️', '🍀', '🍁', '🍂', '🍃', '🍄', '🐝', '🐛', '🐜', '🐞', '🐟', '🐠', '🐡'],
-            food: ['🍔', '🍟', '🍕', '🌭', '🌮', '🌯', '🥙', '🥚', '🍳', '🥓', '🥞', '🧀', '🍖', '🍗', '🥩', '🍝', '🍜', '🍲', '🍥', '🍣', '🍱', '🍛', '🍙', '🍚', '🍘', '🍠'],
-            travel: ['✈️', '🚂', '🚃', '🚄', '🚅', '🚆', '🚇', '🚈', '🚉', '🚊', '🚝', '🚞', '🚋', '🚌', '🚍', '🚎', '🚐', '🚑', '🚒', '🚓', '🚔', '🚕', '🚖', '🚗', '🚘', '🚙'],
-            objects: ['💰', '💸', '💵', '💴', '💶', '💷', '💳', '💱', '💲', '⚖️', '🔧', '🔨', '⚒️', '🔩', '⛏️', '🔪', '🗡️', '⚔️', '🔫', '🏹', '🔰', '⚰️', '⚱️', '🏺', '🔮', '📿', '📠'],
-            symbols: ['❤️', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔', '❣️', '💕', '💖', '💗', '💘', '💙', '💚', '💛', '💜', '💝', '💞', '💟', '♥️', '♠️', '♦️', '♣️', '💬', '🗨️']
+            smileys: ['😀', '😁', '😂', '🤣', '😃', '😄', '😅', '😆', '😉', '😊', '😋', '😎', '😍', '🥰', '😘', '😗', '😙', '😚', '🙂', '🤗', '🤔', '🤨', '😐', '😑', '😶', '🙄', '😏', '😣', '😥', '😮', '🤐', '😯', '😪', '😫', '🥱', '😴', '😌', '😛', '😜', '😝', '🤤'],
+            people: ['👍', '👎', '👌', '✌️', '🤞', '🤟', '🤘', '👊', '✊', '🤛', '🤜', '👏', '🙌', '👐', '🤲', '🙏', '✍️', '💪', '🦾', '🦿', '🦵', '🦶', '👂', '🦻', '👃', '🧠', '🫀', '🫁', '🦷', '🦴', '👀', '👁️', '👅', '👄', '💋', '🩸'],
+            nature: ['🌱', '🌿', '🍀', '🌳', '🌲', '🌴', '🌵', '🌾', '🌷', '🌸', '🌹', '🥀', '🌺', '🌻', '🌼', '🌽', '🍄', '🌰', '🌊', '💧', '🔥', '⭐', '🌟', '💫', '⚡', '☀️', '🌤️', '⛅', '🌦️', '🌧️', '⛈️', '🌩️', '🌨️', '❄️', '☃️', '⛄', '🌬️', '💨', '🌪️', '🌫️', '🌈'],
+            food: ['🍎', '🍊', '🍋', '🍌', '🍉', '🍇', '🍓', '🫐', '🍈', '🍒', '🍑', '🥭', '🍍', '🥥', '🥝', '🍅', '🍆', '🥑', '🥦', '🥬', '🥒', '🌶️', '🫑', '🌽', '🥕', '🫒', '🧄', '🧅', '🥔', '🍠', '🥐', '🥖', '🍞', '🥨', '🥯', '🧀', '🥚', '🍳', '🧈', '🥞', '🧇', '🥓', '🥩', '🍗', '🍖', '🌭', '🍔', '🍟', '🍕'],
+            travel: ['🚗', '🚕', '🚙', '🚌', '🚎', '🏎️', '🚓', '🚑', '🚒', '🚐', '🛻', '🚚', '🚛', '🚜', '🏍️', '🛵', '🚲', '🛴', '🛹', '🛼', '🚁', '🛸', '✈️', '🛩️', '🛫', '🛬', '🪂', '💺', '🚀', '🛰️', '🚢', '⛵', '🚤', '🛥️', '🛳️', '⛴️', '🚂', '🚃', '🚄', '🚅', '🚆', '🚇', '🚈', '🚉', '🚊', '🚝', '🚞', '🚋', '🚌'],
+            objects: ['💰', '💸', '💵', '💴', '💶', '💷', '🪙', '💳', '💎', '⚖️', '🪜', '🔧', '🔨', '⚒️', '🛠️', '⛏️', '🔩', '⚙️', '🪚', '🔫', '🏹', '🛡️', '🪃', '🔪', '🗡️', '⚔️', '💣', '🪓', '🔮', '📿', '🧿', '🪬', '⚗️', '🔭', '🔬', '🕳️', '🩹', '🩺', '💊', '💉', '🧬', '🦠', '🧫', '🧪', '🌡️', '🧹', '🪠', '🧽', '🧴', '🧷', '🧲', '🪝'],
+            symbols: ['❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔', '❤️‍🔥', '❤️‍🩹', '❣️', '💕', '💞', '💓', '💗', '💖', '💘', '💝', '💟', '☮️', '✝️', '☪️', '🕉️', '☸️', '✡️', '🔯', '🕎', '☯️', '☦️', '🛐', '⛎', '♈', '♉', '♊', '♋', '♌', '♍', '♎', '♏', '♐', '♑', '♒', '♓', '🆔', '⚡', '💥', '💫', '💦', '💨', '🕳️', '💬', '👁️‍🗨️', '🗨️', '🗯️', '💭', '💤']
         };
         
         function initEmojiPicker() {
             const emojiToggle = document.getElementById('emojiToggle');
             const emojiPanel = document.getElementById('emojiPanel');
             const emojiGrid = document.getElementById('emojiGrid');
-            const categories = document.querySelectorAll('.emoji-cat');
             
             if (!emojiToggle || !emojiPanel || !emojiGrid) {
                 console.warn('Éléments emoji picker manquants');
@@ -1482,58 +1706,70 @@
             
             let isOpen = false;
             
-            emojiToggle.addEventListener('click', (e) => {
+            // Charger les emojis de base
+            loadEmojis('smileys');
+            
+            // Toggle du panel
+            emojiToggle.onclick = function(e) {
                 e.preventDefault();
                 isOpen = !isOpen;
                 emojiPanel.style.display = isOpen ? 'block' : 'none';
-                if (isOpen) loadEmojis('smileys');
-            });
+            };
             
-            categories.forEach(cat => {
-                cat.addEventListener('click', (e) => {
+            // Catégories
+            document.querySelectorAll('.emoji-cat').forEach(cat => {
+                cat.onclick = function(e) {
                     e.preventDefault();
-                    categories.forEach(c => c.classList.remove('active'));
+                    document.querySelectorAll('.emoji-cat').forEach(c => c.classList.remove('active'));
                     cat.classList.add('active');
                     loadEmojis(cat.dataset.cat);
-                });
+                };
             });
             
-            // Fermer le picker en touchant ailleurs
-            document.addEventListener('click', (e) => {
+            // Fermer en cliquant ailleurs
+            document.onclick = function(e) {
                 if (!emojiPanel.contains(e.target) && !emojiToggle.contains(e.target)) {
                     isOpen = false;
                     emojiPanel.style.display = 'none';
                 }
-            });
+            };
             
             function loadEmojis(category) {
                 if (!emojiData[category]) return;
                 
                 emojiGrid.innerHTML = '';
-                emojiData[category].forEach(emoji => {
+                const emojis = emojiData[category];
+                
+                emojis.forEach(emoji => {
                     const btn = document.createElement('button');
                     btn.className = 'emoji-item';
                     btn.textContent = emoji;
-                    btn.addEventListener('click', (e) => {
+                    btn.type = 'button';
+                    
+                    btn.onclick = function(e) {
                         e.preventDefault();
                         insertEmoji(emoji);
-                    });
+                    };
+                    
                     emojiGrid.appendChild(btn);
                 });
+                
+                // Mettre à jour le compteur
+                const emojiCount = document.getElementById('emojiCount');
+                if (emojiCount) {
+                    emojiCount.textContent = `${emojis.length} emojis`;
+                }
             }
         }
         
         function insertEmoji(emoji) {
             const input = document.getElementById('chatInput');
             if (input) {
-                const cursorPos = input.selectionStart;
-                const textBefore = input.value.substring(0, cursorPos);
-                const textAfter = input.value.substring(cursorPos);
-                input.value = textBefore + emoji + textAfter;
-                input.setSelectionRange(cursorPos + emoji.length, cursorPos + emoji.length);
+                input.value += emoji;
                 input.focus();
             }
             
+            // Fermer le panel
             const emojiPanel = document.getElementById('emojiPanel');
             if (emojiPanel) {
                 emojiPanel.style.display = 'none';
@@ -1601,27 +1837,116 @@
             };
         }
         
-        window.insertEmoji = insertEmoji;
-        window.initEmojiPicker = initEmojiPicker;
-        window.initFileUpload = initFileUpload;
-        window.initGifSearch = initGifSearch;
+        // Fonction d'améliorations supplémentaires du chat
+        function initChatEnhancements() {
+            const chatInput = document.getElementById('chatInput');
+            const sendBtn = document.getElementById('sendMessage');
+            const emojiClose = document.getElementById('emojiClose');
+            
+            // Bouton de fermeture du picker d'emojis
+            if (emojiClose) {
+                emojiClose.onclick = function(e) {
+                    e.preventDefault();
+                    document.getElementById('emojiPanel').style.display = 'none';
+                };
+            }
+            
+            // Animation du bouton d'envoi
+            if (sendBtn && chatInput) {
+                chatInput.oninput = function() {
+                    if (chatInput.value.trim()) {
+                        sendBtn.classList.add('active');
+                    } else {
+                        sendBtn.classList.remove('active');
+                    }
+                };
+            }
+        }
+        
+        function filterEmojis(query) {
+            const emojiGrid = document.getElementById('emojiGrid');
+            const emojiCount = document.getElementById('emojiCount');
+            
+            if (!query) {
+                // Recharger la catégorie active
+                const activeCategory = document.querySelector('.emoji-cat.active');
+                if (activeCategory) {
+                    loadEmojis(activeCategory.dataset.cat);
+                }
+                return;
+            }
+            
+            // Recherche dans tous les emojis
+            const allEmojis = [];
+            Object.values(emojiData).forEach(categoryEmojis => {
+                allEmojis.push(...categoryEmojis);
+            });
+            
+            // Filtrer (recherche simple par maintenant)
+            const filteredEmojis = allEmojis.filter(emoji => {
+                // Ici on pourrait ajouter une logique de recherche plus sophistiquée
+                return true; // Pour l'instant, on affiche tous les emojis
+            });
+            
+            // Afficher les résultats
+            emojiGrid.innerHTML = '';
+            filteredEmojis.slice(0, 50).forEach(emoji => {
+                const btn = document.createElement('button');
+                btn.className = 'emoji-item';
+                btn.textContent = emoji;
+                btn.type = 'button';
+                
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    insertEmoji(emoji);
+                });
+                
+                emojiGrid.appendChild(btn);
+            });
+            
+            if (emojiCount) {
+                emojiCount.textContent = `${Math.min(filteredEmojis.length, 50)} emojis`;
+            }
+        }
+        
+        function showTypingIndicator() {
+            // Placeholder pour indicateur de frappe
+        }
+        
+        function hideTypingIndicator() {
+            // Placeholder pour cacher l'indicateur
+        }
+        
+        // Fonctions emoji simplifiées déjà définies plus haut
         
         // Méthodes pour le badge et les notifications
         VIPChat.prototype.updateBadge = function(count) {
             const badge = document.getElementById('chatBadge');
-            const currentCount = parseInt(badge.textContent) || 0;
-            const newCount = currentCount + count;
+            this.unreadCount = (this.unreadCount || 0) + count;
             
-            if (newCount > 0) {
-                badge.textContent = newCount > 99 ? '99+' : newCount;
+            if (this.unreadCount > 0) {
+                badge.textContent = this.unreadCount > 99 ? '99+' : this.unreadCount;
                 badge.style.display = 'flex';
+                badge.classList.add('bounce-animation');
+                
+                // Animation de pulsation
+                setTimeout(() => {
+                    badge.classList.remove('bounce-animation');
+                }, 600);
             }
         };
         
         VIPChat.prototype.resetBadge = function() {
             const badge = document.getElementById('chatBadge');
+            this.unreadCount = 0;
             badge.textContent = '0';
             badge.style.display = 'none';
+            badge.classList.remove('bounce-animation', 'pulse-animation');
+        };
+        
+        VIPChat.prototype.markMessagesAsRead = function() {
+            this.lastMessageTime = Date.now();
+            localStorage.setItem('lastChatCheck', this.lastMessageTime);
         };
         
         VIPChat.prototype.playNotificationSound = function() {
@@ -1747,36 +2072,45 @@
             const notificationsDisabled = localStorage.getItem('chatNotificationsDisabled') === 'true';
             const settingsHtml = `
                 <div class="chat-settings">
-                    <h4>Paramètres du Chat</h4>
+                    <h4>⚙️ Paramètres du Chat</h4>
                     <div class="setting-item">
-                        <label>
-                            <input type="checkbox" id="notificationsToggle" ${!notificationsDisabled ? 'checked' : ''}>
-                            Activer toutes les notifications
+                        <label class="setting-label">
+                            <div class="checkbox-container">
+                                <input type="checkbox" id="notificationsToggle" ${!notificationsDisabled ? 'checked' : ''}>
+                                <span class="checkmark"></span>
+                            </div>
+                            <span class="setting-text">Activer toutes les notifications</span>
                         </label>
-                        <small style="color: rgba(255,255,255,0.6); font-size: 0.8em; display: block; margin-top: 5px;">
+                        <small class="setting-help">
                             Désactive complètement sons et notifications push
                         </small>
                     </div>
                     <div class="setting-item" id="soundSetting" style="${notificationsDisabled ? 'opacity: 0.5; pointer-events: none;' : ''}">
-                        <label>
-                            <input type="checkbox" id="soundToggle" ${this.soundEnabled && !notificationsDisabled ? 'checked' : ''}>
-                            Sons de notification
+                        <label class="setting-label">
+                            <div class="checkbox-container">
+                                <input type="checkbox" id="soundToggle" ${this.soundEnabled && !notificationsDisabled ? 'checked' : ''}>
+                                <span class="checkmark"></span>
+                            </div>
+                            <span class="setting-text">Sons de notification</span>
                         </label>
                     </div>
                     <div class="setting-item" id="pushSetting" style="${notificationsDisabled ? 'opacity: 0.5; pointer-events: none;' : ''}">
-                        <label>
-                            <input type="checkbox" id="pushToggle" ${this.pushEnabled && !notificationsDisabled ? 'checked' : ''}>
-                            Notifications push (mobile)
+                        <label class="setting-label">
+                            <div class="checkbox-container">
+                                <input type="checkbox" id="pushToggle" ${this.pushEnabled && !notificationsDisabled ? 'checked' : ''}>
+                                <span class="checkmark"></span>
+                            </div>
+                            <span class="setting-text">Notifications push (mobile)</span>
                         </label>
-                        <small style="color: rgba(255,255,255,0.6); font-size: 0.8em; display: block; margin-top: 5px;">
+                        <small class="setting-help">
                             ${this.getNotificationHelp()}
                         </small>
                     </div>
                     <div class="setting-item">
-                        <button id="changeNicknameBtn" class="setting-btn">Changer le pseudo</button>
+                        <button id="changeNicknameBtn" class="setting-btn">👤 Changer le pseudo</button>
                     </div>
                     <div class="setting-actions">
-                        <button id="saveSettingsBtn" class="setting-btn primary">Retour au chat</button>
+                        <button id="saveSettingsBtn" class="setting-btn primary">💬 Retour au chat</button>
                     </div>
                 </div>
             `;

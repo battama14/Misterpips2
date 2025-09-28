@@ -422,10 +422,11 @@
         height: 24px !important;
         font-size: 12px !important;
         font-weight: bold !important;
-        display: none !important;
+        display: flex !important;
         align-items: center !important;
         justify-content: center !important;
         border: 2px solid white !important;
+        z-index: 1001 !important;
     }
     
     .chat-window {
@@ -633,6 +634,15 @@
         justify-content: center !important;
         min-height: 50px !important;
         min-width: 50px !important;
+        flex-shrink: 0 !important;
+        position: relative !important;
+        z-index: 10 !important;
+    }
+    
+    .send-btn::before {
+        content: '➤' !important;
+        font-size: 18px !important;
+        color: white !important;
     }
     
     .send-btn:hover,
