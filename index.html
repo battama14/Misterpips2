@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="vip-styles.css">
     <link rel="stylesheet" href="mobile-responsive.css">
     <link rel="stylesheet" href="mobile-fixes-complete.css">
+    <link rel="stylesheet" href="mobile-menu-index.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js';
@@ -36,7 +37,7 @@
             <img src="Misterpips.jpg" alt="Misterpips Logo" class="logo">
         </div>
         <nav>
-            <button class="mobile-menu-btn" id="mobileMenuBtn" style="display: none;">☰</button>
+            <button class="mobile-menu-btn" id="mobileMenuBtn">☰</button>
             <ul class="nav-links" id="navLinks">
                 <li><a href="#presentation">Présentation</a></li>
                 <li><a href="#apprentissage">Apprentissage</a></li>
@@ -45,8 +46,9 @@
                 <li><a href="#avis">Vos avis</a></li>
                 <li><a href="#contact">Nous contacter</a></li>
                 <li><a href="#" class="vip-login-nav" id="vipLoginNav">🔑 CONNEXION VIP</a></li>
-                <li><a href="#apprentissage" class="ebook-link-nav">📚 PRENDS TON<br>EBOOK GRATUIT</a></li>
+                <li><a href="#apprentissage" class="ebook-link-nav">📚 EBOOK GRATUIT</a></li>
             </ul>
+            <div id="navOverlay" class="nav-overlay"></div>
         </nav>
     </header>
 
