@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Accès VIP Direct - Misterpips</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #1a1a2e;
+            color: white;
+            text-align: center;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 40px;
+            border-radius: 15px;
+            border: 1px solid #00d4ff;
+        }
+        button {
+            background: linear-gradient(45deg, #00d4ff, #5b86e5);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            width: 100%;
+            margin: 10px 0;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 212, 255, 0.4);
+        }
+        .form-group {
+            margin: 20px 0;
+            text-align: left;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #00d4ff;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 16px;
+        }
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        .success { background: rgba(78, 205, 196, 0.2); color: #4ecdc4; }
+        .error { background: rgba(255, 107, 107, 0.2); color: #ff6b6b; }
+    </style>
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js';
+        import { getAuth, signInWithEmailAndPassword, setPersistence, browserSessionPersistence } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js';
+        import { getDatabase, ref, set } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js';
+        
+        const firebaseConfig = {
+            apiKey: "AIzaSyDSDK0NfVSs_VQb3TnrixiJbOpTsmoUMvU",
+            authDomain: "misterpips-b71fb.firebaseapp.com",
+            databaseURL: "https://misterpips-b71fb-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "misterpips-b71fb",
+            storageBucket: "misterpips-b71fb.firebasestorage.app",
+            messagingSenderId: "574231126409",
+            appId: "1:574231126409:web:b7ed93ac4ea62e247dc158"
+        };
+        
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getDatabase(app);
+        
+        // Définir la persistance
+        await setPersistence(auth, browserSessionPersistence);
+        
+        window.firebaseAuth = auth;
+        window.firebaseDB = db;
+        window.signInWithEmailAndPassword = signInWithEmailAndPassword;
+        window.ref = ref;
+        window.set = set;
+    </script>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Accès VIP Direct</h1>
+        <p>Solution de contournement pour accéder à l'espace VIP</p>
+        
+        <div class="form-group">
+            <label for="email">Email VIP</label>
+            <input type="email" id="email" placeholder="kamel.lou@gmail.com">
+        </div>
+        
+        <div class="form-group">
+            <label for="password">Mot de passe</label>
+            <input type="password" id="password" placeholder="Votre mot de passe">
+        </div>
+        
+        <button onclick="directVIPAccess()">🔐 Connexion + Accès VIP Direct</button>
+        
+        <div id="status"></div>
+        
+        <div style="margin-top: 30px; padding: 20px; background: rgba(255, 193, 7, 0.1); border-radius: 8px; border-left: 4px solid #ffc107;">
+            <h3>📋 Comment ça marche :</h3>
+            <ol style="text-align: left;">
+                <li>Connexion Firebase avec persistance forcée</li>
+                <li>Création automatique du statut VIP</li>
+                <li>Stockage des données de session</li>
+                <li>Redirection immédiate vers l'espace VIP</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        async function directVIPAccess() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const statusDiv = document.getElementById('status');
+            
+            if (!email || !password) {
+                statusDiv.innerHTML = '<div class="status error">❌ Veuillez entrer email et mot de passe</div>';
+                return;
+            }
+            
+            statusDiv.innerHTML = '<div class="status">🔄 Connexion en cours...</div>';
+            
+            try {
+                // 1. Connexion Firebase
+                const userCredential = await window.signInWithEmailAndPassword(window.firebaseAuth, email, password);
+                const user = userCredential.user;
+                
+                statusDiv.innerHTML = '<div class="status success">✅ Connexion réussie</div>';
+                
+                // 2. Forcer le stockage des données de session
+                sessionStorage.setItem('firebaseUID', user.uid);
+                sessionStorage.setItem('userEmail', user.email);
+                sessionStorage.setItem('authenticated', 'true');
+                sessionStorage.setItem('isVIP', 'true');
+                sessionStorage.setItem('vipPlan', 'VIP');
+                
+                // 3. Créer les données VIP dans Firebase
+                const userRef = window.ref(window.firebaseDB, `users/${user.uid}`);
+                await window.set(userRef, {
+                    email: user.email,
+                    isVIP: true,
+                    plan: 'VIP',
+                    subscriptionDate: new Date().toISOString(),
+                    status: 'active',
+                    directAccess: true,
+                    timestamp: Date.now()
+                });
+                
+                statusDiv.innerHTML = '<div class="status success">✅ Statut VIP configuré</div>';
+                
+                // 4. Attendre un peu pour la synchronisation
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                statusDiv.innerHTML = '<div class="status success">🚀 Redirection vers l\'espace VIP...</div>';
+                
+                // 5. Redirection avec paramètres
+                window.location.href = 'vip-space.html?direct=true&uid=' + user.uid;
+                
+            } catch (error) {
+                console.error('Erreur:', error);
+                statusDiv.innerHTML = `<div class="status error">❌ Erreur: ${error.message}</div>`;
+            }
+        }
+        
+        // Pré-remplir l'email si disponible
+        document.addEventListener('DOMContentLoaded', function() {
+            const storedEmail = sessionStorage.getItem('userEmail');
+            if (storedEmail) {
+                document.getElementById('email').value = storedEmail;
+            }
+        });
+    </script>
+</body>
+</html>

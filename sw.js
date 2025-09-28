@@ -1,176 +1,267 @@
-// Service Worker pour les notifications push - Misterpips
-const CACHE_NAME = 'misterpips-chat-v1';
+// Service Worker - Misterpips Mobile Optimizations
+const CACHE_NAME = 'misterpips-v1.2';
+const urlsToCache = [
+    '/',
+    '/index.html',
+    '/trading-dashboard.html',
+    '/planning-forex.html',
+    '/vip-space.html',
+    '/styles.css',
+    '/vip-styles.css',
+    '/mobile-responsive.css',
+    '/chat-mobile-styles.css',
+    '/dashboard-styles.css',
+    '/mobile-optimizations.js',
+    '/Misterpips.jpg'
+];
 
-// Firebase config pour les notifications push
-const firebaseConfig = {
-    apiKey: "AIzaSyDSDK0NfVSs_VQb3TnrixiJbOpTsmoUMvU",
-    authDomain: "misterpips-b71fb.firebaseapp.com",
-    databaseURL: "https://misterpips-b71fb-default-rtdb.europe-west1.firebasedatabase.app",
-    projectId: "misterpips-b71fb",
-    storageBucket: "misterpips-b71fb.firebasestorage.app",
-    messagingSenderId: "574231126409",
-    appId: "1:574231126409:web:b7ed93ac4ea62e247dc158"
-};
-
-self.addEventListener('install', (event) => {
-    console.log('Service Worker installé');
+// Installation du service worker
+self.addEventListener('install', function(event) {
+    console.log('📦 Service Worker: Installation');
+    event.waitUntil(
+        caches.open(CACHE_NAME)
+            .then(function(cache) {
+                console.log('📦 Service Worker: Cache ouvert');
+                return cache.addAll(urlsToCache.map(url => {
+                    return new Request(url, { cache: 'reload' });
+                }));
+            })
+            .catch(function(error) {
+                console.error('📦 Service Worker: Erreur cache:', error);
+            })
+    );
     self.skipWaiting();
 });
 
-self.addEventListener('activate', (event) => {
-    console.log('Service Worker activé');
-    event.waitUntil(self.clients.claim());
-    
-    // Démarrer l'écoute des notifications push
-    startPushListener();
+// Activation du service worker
+self.addEventListener('activate', function(event) {
+    console.log('🔄 Service Worker: Activation');
+    event.waitUntil(
+        caches.keys().then(function(cacheNames) {
+            return Promise.all(
+                cacheNames.map(function(cacheName) {
+                    if (cacheName !== CACHE_NAME) {
+                        console.log('🗑️ Service Worker: Suppression ancien cache:', cacheName);
+                        return caches.delete(cacheName);
+                    }
+                })
+            );
+        })
+    );
+    self.clients.claim();
 });
 
-// Gérer les notifications push
-self.addEventListener('push', (event) => {
-    if (event.data) {
-        const data = event.data.json();
-        const options = {
-            body: data.body,
-            icon: '/Misterpips.jpg',
-            badge: '/Misterpips.jpg',
-            tag: 'vip-chat',
-            requireInteraction: false,
-            actions: [
-                {
-                    action: 'open',
-                    title: 'Ouvrir le chat'
-                },
-                {
-                    action: 'close',
-                    title: 'Fermer'
-                }
-            ]
-        };
+// Interception des requêtes
+self.addEventListener('fetch', function(event) {
+    // Stratégie Cache First pour les ressources statiques
+    if (event.request.destination === 'style' || 
+        event.request.destination === 'script' || 
+        event.request.destination === 'image' ||
+        event.request.url.includes('.css') ||
+        event.request.url.includes('.js') ||
+        event.request.url.includes('.jpg') ||
+        event.request.url.includes('.png')) {
         
-        event.waitUntil(
-            self.registration.showNotification('💬 Nouveau message VIP', options)
+        event.respondWith(
+            caches.match(event.request)
+                .then(function(response) {
+                    if (response) {
+                        return response;
+                    }
+                    return fetch(event.request).then(function(response) {
+                        if (!response || response.status !== 200 || response.type !== 'basic') {
+                            return response;
+                        }
+                        const responseToCache = response.clone();
+                        caches.open(CACHE_NAME)
+                            .then(function(cache) {
+                                cache.put(event.request, responseToCache);
+                            });
+                        return response;
+                    });
+                })
+        );
+    }
+    // Stratégie Network First pour les pages HTML et APIs
+    else if (event.request.destination === 'document' || 
+             event.request.url.includes('firebase') ||
+             event.request.url.includes('api')) {
+        
+        event.respondWith(
+            fetch(event.request)
+                .then(function(response) {
+                    if (response.status === 200) {
+                        const responseToCache = response.clone();
+                        caches.open(CACHE_NAME)
+                            .then(function(cache) {
+                                cache.put(event.request, responseToCache);
+                            });
+                    }
+                    return response;
+                })
+                .catch(function() {
+                    return caches.match(event.request);
+                })
         );
     }
 });
 
-// Gérer les clics sur les notifications
-self.addEventListener('notificationclick', (event) => {
+// Gestion des notifications push
+self.addEventListener('push', function(event) {
+    console.log('📱 Service Worker: Notification push reçue');
+    
+    let notificationData = {};
+    
+    if (event.data) {
+        try {
+            notificationData = event.data.json();
+        } catch (e) {
+            notificationData = {
+                title: 'Misterpips',
+                body: event.data.text() || 'Nouvelle notification',
+                icon: '/Misterpips.jpg',
+                badge: '/Misterpips.jpg'
+            };
+        }
+    }
+    
+    const options = {
+        body: notificationData.body || 'Nouvelle notification Misterpips',
+        icon: notificationData.icon || '/Misterpips.jpg',
+        badge: notificationData.badge || '/Misterpips.jpg',
+        tag: 'misterpips-notification',
+        requireInteraction: false,
+        actions: [
+            {
+                action: 'open',
+                title: 'Ouvrir',
+                icon: '/Misterpips.jpg'
+            },
+            {
+                action: 'close',
+                title: 'Fermer'
+            }
+        ],
+        data: {
+            url: notificationData.url || '/',
+            timestamp: Date.now()
+        }
+    };
+    
+    event.waitUntil(
+        self.registration.showNotification(
+            notificationData.title || '💬 Misterpips VIP',
+            options
+        )
+    );
+});
+
+// Gestion des clics sur notifications
+self.addEventListener('notificationclick', function(event) {
+    console.log('📱 Service Worker: Clic notification');
+    
     event.notification.close();
     
-    if (event.action === 'open' || !event.action) {
-        event.waitUntil(
-            self.clients.matchAll({ type: 'window' }).then((clients) => {
-                // Chercher une fenêtre ouverte avec le dashboard
-                for (const client of clients) {
-                    if (client.url.includes('trading-dashboard.html') && 'focus' in client) {
-                        return client.focus();
+    if (event.action === 'close') {
+        return;
+    }
+    
+    const urlToOpen = event.notification.data?.url || '/';
+    
+    event.waitUntil(
+        clients.matchAll({ type: 'window', includeUncontrolled: true })
+            .then(function(clientList) {
+                // Chercher une fenêtre existante
+                for (let i = 0; i < clientList.length; i++) {
+                    const client = clientList[i];
+                    if (client.url.includes(self.location.origin) && 'focus' in client) {
+                        client.focus();
+                        if (urlToOpen !== '/') {
+                            client.navigate(urlToOpen);
+                        }
+                        return;
                     }
                 }
-                // Ouvrir une nouvelle fenêtre si aucune n'est trouvée
-                if (self.clients.openWindow) {
-                    return self.clients.openWindow('/trading-dashboard.html');
+                
+                // Ouvrir nouvelle fenêtre si aucune trouvée
+                if (clients.openWindow) {
+                    return clients.openWindow(urlToOpen);
                 }
             })
+    );
+});
+
+// Gestion des messages depuis l'application
+self.addEventListener('message', function(event) {
+    console.log('📱 Service Worker: Message reçu:', event.data);
+    
+    if (event.data && event.data.type === 'SHOW_NOTIFICATION') {
+        const options = {
+            body: event.data.body,
+            icon: event.data.icon || '/Misterpips.jpg',
+            badge: '/Misterpips.jpg',
+            tag: 'misterpips-chat',
+            requireInteraction: false,
+            vibrate: [200, 100, 200],
+            data: {
+                url: '/trading-dashboard.html',
+                timestamp: Date.now()
+            }
+        };
+        
+        self.registration.showNotification(
+            event.data.title || '💬 Nouveau message VIP',
+            options
         );
     }
 });
 
-// Gérer les messages du client
-self.addEventListener('message', (event) => {
-    if (event.data && event.data.type === 'SHOW_NOTIFICATION') {
-        const { title, body, icon } = event.data;
-        self.registration.showNotification(title, {
-            body,
-            icon: icon || '/Misterpips.jpg',
-            badge: '/Misterpips.jpg',
-            tag: 'vip-chat',
-            requireInteraction: false,
-            vibrate: [200, 100, 200]
-        });
+// Synchronisation en arrière-plan
+self.addEventListener('sync', function(event) {
+    console.log('🔄 Service Worker: Synchronisation:', event.tag);
+    
+    if (event.tag === 'background-sync') {
+        event.waitUntil(
+            // Synchroniser les données en attente
+            syncPendingData()
+        );
     }
 });
 
-// Fonction pour écouter les notifications push même quand le site est fermé
-function startPushListener() {
-    // Simuler l'écoute des notifications push
-    // En réalité, cela nécessiterait Firebase Cloud Messaging
-    console.log('Push listener démarré');
-    
-    // Vérifier périodiquement les nouvelles notifications
-    setInterval(async () => {
-        try {
-            // Cette fonction sera appelée même si le site est fermé
-            await checkForNewMessages();
-        } catch (error) {
-            console.error('Erreur vérification messages:', error);
-        }
-    }, 30000); // Vérifier toutes les 30 secondes
-}
-
-// Vérifier les nouveaux messages via l'API Firebase
-async function checkForNewMessages() {
+async function syncPendingData() {
     try {
-        // Récupérer les notifications push depuis Firebase
-        const response = await fetch(`${firebaseConfig.databaseURL}/push_notifications.json`);
-        const notifications = await response.json();
+        // Récupérer les données en attente depuis IndexedDB ou localStorage
+        const pendingData = JSON.parse(localStorage.getItem('pendingSync') || '[]');
         
-        if (notifications) {
-            const notificationList = Object.values(notifications);
-            const lastCheck = await getLastNotificationCheck();
-            
-            // Filtrer les nouvelles notifications
-            const newNotifications = notificationList.filter(notif => 
-                notif.timestamp > lastCheck
-            );
-            
-            // Afficher les nouvelles notifications
-            for (const notif of newNotifications) {
-                await self.registration.showNotification(notif.title, {
-                    body: notif.body,
-                    icon: notif.icon || '/Misterpips.jpg',
-                    badge: '/Misterpips.jpg',
-                    tag: 'vip-chat-push',
-                    requireInteraction: false,
-                    vibrate: [200, 100, 200],
-                    data: {
-                        url: '/trading-dashboard.html',
-                        timestamp: notif.timestamp
-                    }
+        for (const data of pendingData) {
+            try {
+                await fetch(data.url, {
+                    method: data.method || 'POST',
+                    headers: data.headers || { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data.body)
                 });
-            }
-            
-            // Mettre à jour le timestamp de dernière vérification
-            if (newNotifications.length > 0) {
-                const latestTimestamp = Math.max(...newNotifications.map(n => n.timestamp));
-                await setLastNotificationCheck(latestTimestamp);
+                
+                console.log('✅ Service Worker: Données synchronisées:', data.id);
+            } catch (error) {
+                console.error('❌ Service Worker: Erreur sync:', error);
             }
         }
+        
+        // Nettoyer les données synchronisées
+        localStorage.removeItem('pendingSync');
+        
     } catch (error) {
-        console.error('Erreur vérification notifications:', error);
+        console.error('❌ Service Worker: Erreur synchronisation:', error);
     }
 }
 
-// Fonctions utilitaires pour le stockage
-async function getLastNotificationCheck() {
-    try {
-        const result = await self.caches.open('notification-cache');
-        const response = await result.match('last-check');
-        if (response) {
-            const data = await response.json();
-            return data.timestamp || 0;
-        }
-    } catch (error) {
-        console.error('Erreur lecture cache:', error);
-    }
-    return 0;
-}
+// Gestion des erreurs
+self.addEventListener('error', function(event) {
+    console.error('❌ Service Worker: Erreur:', event.error);
+});
 
-async function setLastNotificationCheck(timestamp) {
-    try {
-        const cache = await self.caches.open('notification-cache');
-        const response = new Response(JSON.stringify({ timestamp }));
-        await cache.put('last-check', response);
-    } catch (error) {
-        console.error('Erreur écriture cache:', error);
-    }
-}
+self.addEventListener('unhandledrejection', function(event) {
+    console.error('❌ Service Worker: Promise rejetée:', event.reason);
+});
+
+console.log('🚀 Service Worker Misterpips chargé');

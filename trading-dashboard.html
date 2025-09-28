@@ -8,7 +8,14 @@
     <link rel="stylesheet" href="vip-styles-new.css">
     <link rel="stylesheet" href="mobile-responsive.css">
     <link rel="stylesheet" href="ict-matrix-styles.css">
-    <link rel="manifest" href="/manifest.json">
+    <link rel="stylesheet" href="chat-mobile-styles.css">
+    <link rel="stylesheet" href="mobile-fixes.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#00d4ff">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Misterpips">
+    <link rel="apple-touch-icon" href="Misterpips.jpg">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <script type="module">
@@ -403,6 +410,7 @@
 
     <script src="simple-vip-security.js"></script>
     <script src="mobile-menu.js"></script>
+    <script src="mobile-optimizations.js"></script>
     <script src="dashboard-script-working.js"></script>
     <script>
         document.getElementById('historyTradeBtn').addEventListener('click', () => {
@@ -964,6 +972,19 @@
             }
         }
         
+        // Enregistrer le service worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(registration => {
+                        console.log('✅ Service Worker enregistré:', registration.scope);
+                    })
+                    .catch(error => {
+                        console.error('❌ Erreur Service Worker:', error);
+                    });
+            });
+        }
+        
         // Initialiser le classement VIP quand la page est chargée
         document.addEventListener('DOMContentLoaded', () => {
             setTimeout(() => {
@@ -1148,49 +1169,101 @@
                 const chatWindow = document.getElementById('chatWindow');
                 const closeChatBtn = document.getElementById('closeChatBtn');
                 
+                if (!sendBtn || !chatInput || !chatToggle || !chatWindow || !closeChatBtn) {
+                    console.error('Éléments chat manquants');
+                    return;
+                }
+                
                 this.messageCount = 0;
                 this.lastMessageTime = parseInt(localStorage.getItem('lastChatCheck')) || 0;
                 
                 // Initialiser le badge à zéro
                 const badge = document.getElementById('chatBadge');
-                badge.textContent = '0';
-                badge.style.display = 'none';
+                if (badge) {
+                    badge.textContent = '0';
+                    badge.style.display = 'none';
+                }
                 
-                sendBtn.onclick = () => this.sendMessage();
-                chatInput.onkeypress = (e) => {
-                    if (e.key === 'Enter') this.sendMessage();
-                };
+                // Gestionnaires d'événements avec vérifications
+                sendBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    this.sendMessage();
+                });
                 
-                chatToggle.onclick = () => {
+                chatInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        this.sendMessage();
+                    }
+                });
+                
+                // Empêcher le zoom sur focus (mobile)
+                chatInput.addEventListener('focus', () => {
+                    if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+                        document.querySelector('meta[name=viewport]').setAttribute('content', 
+                            'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
+                    }
+                });
+                
+                chatInput.addEventListener('blur', () => {
+                    if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+                        document.querySelector('meta[name=viewport]').setAttribute('content', 
+                            'width=device-width, initial-scale=1.0');
+                    }
+                });
+                
+                chatToggle.addEventListener('click', () => {
                     chatWindow.classList.toggle('show');
                     if (chatWindow.classList.contains('show')) {
                         this.resetBadge();
+                        // Focus sur l'input après ouverture
+                        setTimeout(() => {
+                            chatInput.focus();
+                        }, 300);
                     }
-                };
+                });
                 
-                closeChatBtn.onclick = () => {
+                closeChatBtn.addEventListener('click', () => {
                     chatWindow.classList.remove('show');
-                };
+                });
                 
                 const chatSettingsBtn = document.getElementById('chatSettingsBtn');
-                chatSettingsBtn.onclick = () => {
-                    this.showSettings();
-                };
+                if (chatSettingsBtn) {
+                    chatSettingsBtn.addEventListener('click', () => {
+                        this.showSettings();
+                    });
+                }
+                
+                // Fermer le chat en touchant en dehors (mobile)
+                chatWindow.addEventListener('click', (e) => {
+                    if (e.target === chatWindow) {
+                        chatWindow.classList.remove('show');
+                    }
+                });
                 
                 // Initialiser les nouvelles fonctionnalités
                 setTimeout(() => {
-                    initEmojiPicker();
-                    initFileUpload();
-                    initGifSearch();
-                    window.vipChat = this;
+                    try {
+                        initEmojiPicker();
+                        initFileUpload();
+                        initGifSearch();
+                        window.vipChat = this;
+                    } catch (error) {
+                        console.error('Erreur initialisation fonctionnalités chat:', error);
+                    }
                 }, 100);
             }
             
             async sendMessage() {
                 const input = document.getElementById('chatInput');
+                const sendBtn = document.getElementById('sendMessage');
                 const message = input.value.trim();
                 
                 if (!message) return;
+                
+                // Désactiver temporairement le bouton pour éviter les doublons
+                sendBtn.disabled = true;
+                sendBtn.style.opacity = '0.6';
                 
                 const messageData = {
                     id: Date.now(),
@@ -1202,18 +1275,53 @@
                 };
                 
                 try {
+                    // Vider immédiatement l'input pour un feedback rapide
+                    input.value = '';
+                    
                     if (window.firebaseDB) {
+                        const { ref, push } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js');
                         const messagesRef = ref(window.firebaseDB, 'vip_chat');
                         await push(messagesRef, messageData);
                         
                         // Envoyer notification push aux autres utilisateurs
                         await this.sendPushNotification(messageData);
+                    } else {
+                        // Fallback : afficher le message localement
+                        this.displayLocalMessage(messageData);
                     }
-                    
-                    input.value = '';
                 } catch (error) {
                     console.error('Erreur envoi message:', error);
+                    // Restaurer le message en cas d'erreur
+                    input.value = message;
+                    alert('Erreur lors de l\'envoi du message. Veuillez réessayer.');
+                } finally {
+                    // Réactiver le bouton après 1 seconde
+                    setTimeout(() => {
+                        sendBtn.disabled = false;
+                        sendBtn.style.opacity = '1';
+                    }, 1000);
                 }
+            }
+            
+            displayLocalMessage(messageData) {
+                const chatMessages = document.getElementById('chatMessages');
+                const time = new Date(messageData.timestamp).toLocaleTimeString('fr-FR', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+                
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'chat-message message-own';
+                messageDiv.innerHTML = `
+                    <div class="message-header">
+                        <span class="message-nickname">${messageData.nickname}</span>
+                        <span class="message-time">${time}</span>
+                    </div>
+                    <div class="message-content">${messageData.message}</div>
+                `;
+                
+                chatMessages.appendChild(messageDiv);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
             }
             
             async loadMessages() {
@@ -1367,29 +1475,49 @@
             const emojiGrid = document.getElementById('emojiGrid');
             const categories = document.querySelectorAll('.emoji-cat');
             
+            if (!emojiToggle || !emojiPanel || !emojiGrid) {
+                console.warn('Éléments emoji picker manquants');
+                return;
+            }
+            
             let isOpen = false;
             
-            emojiToggle.onclick = () => {
+            emojiToggle.addEventListener('click', (e) => {
+                e.preventDefault();
                 isOpen = !isOpen;
                 emojiPanel.style.display = isOpen ? 'block' : 'none';
                 if (isOpen) loadEmojis('smileys');
-            };
+            });
             
             categories.forEach(cat => {
-                cat.onclick = () => {
+                cat.addEventListener('click', (e) => {
+                    e.preventDefault();
                     categories.forEach(c => c.classList.remove('active'));
                     cat.classList.add('active');
                     loadEmojis(cat.dataset.cat);
-                };
+                });
+            });
+            
+            // Fermer le picker en touchant ailleurs
+            document.addEventListener('click', (e) => {
+                if (!emojiPanel.contains(e.target) && !emojiToggle.contains(e.target)) {
+                    isOpen = false;
+                    emojiPanel.style.display = 'none';
+                }
             });
             
             function loadEmojis(category) {
+                if (!emojiData[category]) return;
+                
                 emojiGrid.innerHTML = '';
                 emojiData[category].forEach(emoji => {
                     const btn = document.createElement('button');
                     btn.className = 'emoji-item';
                     btn.textContent = emoji;
-                    btn.onclick = () => insertEmoji(emoji);
+                    btn.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        insertEmoji(emoji);
+                    });
                     emojiGrid.appendChild(btn);
                 });
             }
@@ -1397,9 +1525,19 @@
         
         function insertEmoji(emoji) {
             const input = document.getElementById('chatInput');
-            input.value += emoji;
-            input.focus();
-            document.getElementById('emojiPanel').style.display = 'none';
+            if (input) {
+                const cursorPos = input.selectionStart;
+                const textBefore = input.value.substring(0, cursorPos);
+                const textAfter = input.value.substring(cursorPos);
+                input.value = textBefore + emoji + textAfter;
+                input.setSelectionRange(cursorPos + emoji.length, cursorPos + emoji.length);
+                input.focus();
+            }
+            
+            const emojiPanel = document.getElementById('emojiPanel');
+            if (emojiPanel) {
+                emojiPanel.style.display = 'none';
+            }
         }
         
         function initFileUpload() {

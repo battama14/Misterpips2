@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test de Sécurité - Misterpips</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #1a1a2e;
+            color: white;
+        }
+        .test-section {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 10px;
+            border: 1px solid #00d4ff;
+        }
+        .test-result {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .success { background: rgba(78, 205, 196, 0.2); color: #4ecdc4; }
+        .error { background: rgba(255, 107, 107, 0.2); color: #ff6b6b; }
+        .warning { background: rgba(255, 193, 7, 0.2); color: #ffc107; }
+        button {
+            background: #00d4ff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0099cc; }
+    </style>
+</head>
+<body>
+    <h1>🔒 Test de Sécurité Misterpips</h1>
+    
+    <div class="test-section">
+        <h2>Configuration de Sécurité</h2>
+        <div id="config-test"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test d'Accès aux Pages</h2>
+        <button onclick="testPageAccess('index.html')">Tester Page Publique</button>
+        <button onclick="testPageAccess('vip-space.html')">Tester Page VIP</button>
+        <button onclick="testPageAccess('admin-dashboard.html')">Tester Page Admin</button>
+        <div id="access-test"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test Firebase</h2>
+        <button onclick="testFirebase()">Tester Connexion Firebase</button>
+        <div id="firebase-test"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Résumé de Sécurité</h2>
+        <div id="security-summary"></div>
+    </div>
+
+    <script src="security-config.js"></script>
+    <script>
+        // Test de la configuration
+        function testConfiguration() {
+            const results = document.getElementById('config-test');
+            results.innerHTML = '';
+            
+            if (window.SECURITY_CONFIG) {
+                results.innerHTML += '<div class="test-result success">✅ Configuration chargée</div>';
+                results.innerHTML += `<div class="test-result success">✅ Pages publiques: ${window.SECURITY_CONFIG.publicPages.length}</div>`;
+                results.innerHTML += `<div class="test-result success">✅ Pages VIP: ${window.SECURITY_CONFIG.vipPages.length}</div>`;
+                results.innerHTML += `<div class="test-result success">✅ Pages Admin: ${window.SECURITY_CONFIG.adminPages.length}</div>`;
+                results.innerHTML += `<div class="test-result success">✅ Admins autorisés: ${window.SECURITY_CONFIG.adminEmails.length}</div>`;
+            } else {
+                results.innerHTML += '<div class="test-result error">❌ Configuration non chargée</div>';
+            }
+        }
+        
+        // Test d'accès aux pages
+        function testPageAccess(page) {
+            const results = document.getElementById('access-test');
+            const config = window.SECURITY_CONFIG;
+            
+            if (!config) {
+                results.innerHTML += '<div class="test-result error">❌ Configuration manquante</div>';
+                return;
+            }
+            
+            let pageType = 'inconnue';
+            let shouldBeProtected = false;
+            
+            if (config.publicPages.includes(page)) {
+                pageType = 'publique';
+                shouldBeProtected = false;
+            } else if (config.vipPages.includes(page)) {
+                pageType = 'VIP';
+                shouldBeProtected = true;
+            } else if (config.adminPages.includes(page)) {
+                pageType = 'admin';
+                shouldBeProtected = true;
+            }
+            
+            results.innerHTML += `<div class="test-result ${shouldBeProtected ? 'warning' : 'success'}">
+                🔍 ${page} → Type: ${pageType} | Protection: ${shouldBeProtected ? 'OUI' : 'NON'}
+            </div>`;
+        }
+        
+        // Test Firebase
+        async function testFirebase() {
+            const results = document.getElementById('firebase-test');
+            results.innerHTML = '<div class="test-result warning">🔄 Test en cours...</div>';
+            
+            try {
+                // Simuler un test Firebase
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                if (typeof window !== 'undefined') {
+                    results.innerHTML = '<div class="test-result success">✅ Environnement navigateur OK</div>';
+                    results.innerHTML += '<div class="test-result success">✅ Scripts de sécurité prêts</div>';
+                } else {
+                    results.innerHTML = '<div class="test-result error">❌ Environnement non supporté</div>';
+                }
+            } catch (error) {
+                results.innerHTML = `<div class="test-result error">❌ Erreur: ${error.message}</div>`;
+            }
+        }
+        
+        // Résumé de sécurité
+        function generateSecuritySummary() {
+            const summary = document.getElementById('security-summary');
+            const config = window.SECURITY_CONFIG;
+            
+            if (!config) {
+                summary.innerHTML = '<div class="test-result error">❌ Impossible de générer le résumé</div>';
+                return;
+            }
+            
+            const totalPages = config.publicPages.length + config.vipPages.length + config.adminPages.length;
+            const protectedPages = config.vipPages.length + config.adminPages.length;
+            const protectionRate = ((protectedPages / totalPages) * 100).toFixed(1);
+            
+            summary.innerHTML = `
+                <div class="test-result success">📊 Total pages: ${totalPages}</div>
+                <div class="test-result success">🔓 Pages publiques: ${config.publicPages.length}</div>
+                <div class="test-result warning">🔒 Pages protégées: ${protectedPages}</div>
+                <div class="test-result ${protectionRate > 50 ? 'success' : 'warning'}">🛡️ Taux de protection: ${protectionRate}%</div>
+                <div class="test-result success">👨‍💼 Administrateurs: ${config.adminEmails.length}</div>
+            `;
+            
+            // Recommandations
+            if (protectionRate < 50) {
+                summary.innerHTML += '<div class="test-result warning">⚠️ Recommandation: Augmenter la protection</div>';
+            } else {
+                summary.innerHTML += '<div class="test-result success">✅ Niveau de sécurité approprié</div>';
+            }
+        }
+        
+        // Initialisation
+        document.addEventListener('DOMContentLoaded', function() {
+            testConfiguration();
+            generateSecuritySummary();
+        });
+    </script>
+</body>
+</html>

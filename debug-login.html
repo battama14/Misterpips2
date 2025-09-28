@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Connexion - Misterpips</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #1a1a2e;
+            color: white;
+        }
+        .debug-container {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        button {
+            background: #00d4ff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .log {
+            background: #000;
+            color: #0f0;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js';
+        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js';
+        import { getDatabase, ref, set, get } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js';
+        
+        const firebaseConfig = {
+            apiKey: "AIzaSyDSDK0NfVSs_VQb3TnrixiJbOpTsmoUMvU",
+            authDomain: "misterpips-b71fb.firebaseapp.com",
+            databaseURL: "https://misterpips-b71fb-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "misterpips-b71fb",
+            storageBucket: "misterpips-b71fb.firebasestorage.app",
+            messagingSenderId: "574231126409",
+            appId: "1:574231126409:web:b7ed93ac4ea62e247dc158"
+        };
+        
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getDatabase(app);
+        
+        window.firebaseAuth = auth;
+        window.firebaseDB = db;
+        window.signInWithEmailAndPassword = signInWithEmailAndPassword;
+        window.onAuthStateChanged = onAuthStateChanged;
+        window.ref = ref;
+        window.set = set;
+        window.get = get;
+    </script>
+</head>
+<body>
+    <h1>🔧 Debug Connexion VIP</h1>
+    
+    <div class="debug-container">
+        <h2>Test de Connexion</h2>
+        <input type="email" id="email" placeholder="Email" style="width: 200px; padding: 8px; margin: 5px;">
+        <input type="password" id="password" placeholder="Mot de passe" style="width: 200px; padding: 8px; margin: 5px;">
+        <br>
+        <button onclick="testLogin()">🔐 Tester Connexion</button>
+        <button onclick="checkCurrentUser()">👤 Vérifier Utilisateur</button>
+        <button onclick="goToVIP()">🚀 Aller VIP</button>
+        <button onclick="clearLog()">🧹 Vider Log</button>
+    </div>
+    
+    <div class="debug-container">
+        <h2>📋 Log de Debug</h2>
+        <div id="log" class="log">Prêt pour les tests...\n</div>
+    </div>
+
+    <script>
+        let currentUser = null;
+        
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.textContent += `[${timestamp}] ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(message);
+        }
+        
+        function clearLog() {
+            document.getElementById('log').textContent = 'Log vidé...\n';
+        }
+        
+        // Écouter l'état d'authentification avec persistance
+        window.onAuthStateChanged(window.firebaseAuth, (user) => {
+            currentUser = user;
+            if (user) {
+                log(`✅ Utilisateur connecté: ${user.email} (UID: ${user.uid})`);
+                sessionStorage.setItem('firebaseUID', user.uid);
+                sessionStorage.setItem('userEmail', user.email);
+                sessionStorage.setItem('authenticated', 'true');
+            } else {
+                log('❌ Aucun utilisateur connecté');
+                sessionStorage.removeItem('firebaseUID');
+                sessionStorage.removeItem('userEmail');
+                sessionStorage.removeItem('authenticated');
+            }
+        });
+        
+        // Vérifier la persistance au chargement
+        setTimeout(() => {
+            const storedUID = sessionStorage.getItem('firebaseUID');
+            const storedEmail = sessionStorage.getItem('userEmail');
+            if (storedUID && storedEmail && !currentUser) {
+                log(`⚠️ Session trouvée mais utilisateur non connecté: ${storedEmail}`);
+                log('🔄 Tentative de restauration...');
+            }
+        }, 2000);
+        
+        async function testLogin() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            if (!email || !password) {
+                log('❌ Veuillez entrer email et mot de passe');
+                return;
+            }
+            
+            log(`🔄 Tentative de connexion: ${email}`);
+            
+            try {
+                const userCredential = await window.signInWithEmailAndPassword(window.firebaseAuth, email, password);
+                const user = userCredential.user;
+                
+                log(`✅ Connexion réussie: ${user.email}`);
+                log(`🆔 UID: ${user.uid}`);
+                
+                // Ajouter le statut VIP
+                const userRef = window.ref(window.firebaseDB, `users/${user.uid}`);
+                await window.set(userRef, {
+                    email: user.email,
+                    isVIP: true,
+                    plan: 'VIP',
+                    subscriptionDate: new Date().toISOString(),
+                    status: 'active',
+                    debugCreated: true
+                });
+                
+                log('✅ Statut VIP ajouté dans Firebase');
+                
+            } catch (error) {
+                log(`❌ Erreur connexion: ${error.code} - ${error.message}`);
+            }
+        }
+        
+        async function checkCurrentUser() {
+            if (!currentUser) {
+                log('❌ Aucun utilisateur connecté');
+                return;
+            }
+            
+            log(`🔍 Vérification utilisateur: ${currentUser.email}`);
+            
+            try {
+                const userRef = window.ref(window.firebaseDB, `users/${currentUser.uid}`);
+                const snapshot = await window.get(userRef);
+                
+                if (snapshot.exists()) {
+                    const userData = snapshot.val();
+                    log(`✅ Données trouvées:`);
+                    log(`   - Email: ${userData.email}`);
+                    log(`   - VIP: ${userData.isVIP}`);
+                    log(`   - Plan: ${userData.plan}`);
+                    log(`   - Statut: ${userData.status}`);
+                } else {
+                    log('❌ Aucune donnée trouvée dans Firebase');
+                }
+            } catch (error) {
+                log(`❌ Erreur vérification: ${error.message}`);
+            }
+        }
+        
+        function goToVIP() {
+            if (!currentUser) {
+                log('❌ Connectez-vous d\'abord');
+                return;
+            }
+            
+            log('🚀 Redirection vers vip-space.html...');
+            window.location.href = 'vip-space.html';
+        }
+        
+        // Log initial
+        log('🔧 Debug tool initialisé');
+        log('📋 Instructions:');
+        log('1. Entrez vos identifiants');
+        log('2. Cliquez "Tester Connexion"');
+        log('3. Cliquez "Vérifier Utilisateur"');
+        log('4. Cliquez "Aller VIP"');
+    </script>
+</body>
+</html>
