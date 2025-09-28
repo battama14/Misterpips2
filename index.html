@@ -443,14 +443,17 @@
                 const isFirstLogin = !userSnapshot.exists() || !userSnapshot.val().hasLoggedIn;
                 
                 // Ajouter/mettre à jour le statut VIP dans Realtime Database
+                const currentDate = new Date().toISOString();
+                const existingData = userSnapshot.exists() ? userSnapshot.val() : {};
+                
                 await set(userRef, {
                     email: user.email,
                     isVIP: true,
-                    plan: 'VIP',
-                    subscriptionDate: userSnapshot.exists() ? userSnapshot.val().subscriptionDate : new Date().toISOString(),
+                    plan: existingData.plan || 'VIP',
+                    subscriptionDate: existingData.subscriptionDate || currentDate,
                     status: 'active',
                     hasLoggedIn: true,
-                    lastLogin: new Date().toISOString(),
+                    lastLogin: currentDate,
                     autoCreated: !userSnapshot.exists(),
                     timestamp: Date.now()
                 });
