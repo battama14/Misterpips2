@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test VIP Rapide</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #1a1a2e; color: white; }
+        button { background: #00d4ff; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin: 5px; }
+        .log { background: #000; color: #0f0; padding: 10px; border-radius: 5px; font-family: monospace; white-space: pre-wrap; max-height: 400px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <h1>🔧 Test VIP Rapide</h1>
+    
+    <button onclick="testFromIndex()">1️⃣ Test depuis index.html</button>
+    <button onclick="testDirectAccess()">2️⃣ Test accès direct VIP</button>
+    <button onclick="clearSession()">🧹 Vider Session</button>
+    
+    <div id="log" class="log">Prêt pour les tests...\n</div>
+
+    <script>
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.textContent += `[${timestamp}] ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+        
+        function testFromIndex() {
+            log('🔄 Test connexion depuis index.html...');
+            
+            // Simuler les données de session comme si on venait d'index.html
+            sessionStorage.setItem('firebaseUID', 'IN82zuQySgg1OrG7QdXFF06mI7U2');
+            sessionStorage.setItem('userEmail', 'kamel.lou@gmail.com');
+            sessionStorage.setItem('authenticated', 'true');
+            sessionStorage.setItem('isVIP', 'true');
+            
+            log('✅ Session simulée créée');
+            log('🚀 Tentative d\'accès à vip-space.html...');
+            
+            setTimeout(() => {
+                window.location.href = 'vip-space.html';
+            }, 1000);
+        }
+        
+        function testDirectAccess() {
+            log('🔄 Test accès direct...');
+            window.location.href = 'direct-vip-access.html';
+        }
+        
+        function clearSession() {
+            sessionStorage.clear();
+            log('🧹 Session vidée');
+        }
+        
+        // Vérifier l'état actuel
+        document.addEventListener('DOMContentLoaded', function() {
+            const uid = sessionStorage.getItem('firebaseUID');
+            const email = sessionStorage.getItem('userEmail');
+            const auth = sessionStorage.getItem('authenticated');
+            const vip = sessionStorage.getItem('isVIP');
+            
+            log('📋 État actuel de la session:');
+            log(`   - UID: ${uid || 'Non défini'}`);
+            log(`   - Email: ${email || 'Non défini'}`);
+            log(`   - Authentifié: ${auth || 'Non défini'}`);
+            log(`   - VIP: ${vip || 'Non défini'}`);
+            
+            if (uid && email && auth === 'true' && vip === 'true') {
+                log('✅ Session VIP complète détectée');
+            } else {
+                log('❌ Session VIP incomplète');
+            }
+        });
+    </script>
+</body>
+</html>

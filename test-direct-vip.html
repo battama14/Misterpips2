@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Direct VIP</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #1a1a2e; color: white; text-align: center; }
+        button { background: #00d4ff; color: white; border: none; padding: 15px 30px; border-radius: 8px; cursor: pointer; margin: 10px; font-size: 16px; }
+        button:hover { background: #0099cc; }
+    </style>
+</head>
+<body>
+    <h1>🚀 Test Direct VIP</h1>
+    <p>La sécurité est maintenant désactivée sur vip-space.html</p>
+    
+    <button onclick="goDirectToVIP()">📍 Aller directement à VIP</button>
+    <button onclick="testFromIndex()">🏠 Tester depuis Index</button>
+    
+    <script>
+        function goDirectToVIP() {
+            // Aller directement sans sécurité
+            window.location.href = 'vip-space.html';
+        }
+        
+        function testFromIndex() {
+            // Simuler une session valide puis aller à VIP
+            sessionStorage.setItem('firebaseUID', 'IN82zuQySgg1OrG7QdXFF06mI7U2');
+            sessionStorage.setItem('userEmail', 'kamel.lou@gmail.com');
+            sessionStorage.setItem('authenticated', 'true');
+            sessionStorage.setItem('isVIP', 'true');
+            
+            alert('Session VIP créée ! Redirection...');
+            window.location.href = 'vip-space.html';
+        }
+    </script>
+</body>
+</html>

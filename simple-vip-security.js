@@ -8,16 +8,25 @@ const vipPages = ['vip-space.html', 'trading-dashboard.html', 'planning-forex.ht
 if (vipPages.includes(currentPage)) {
     console.log('🔍 Page VIP détectée:', currentPage);
     
-    // Vérification simple basée sur sessionStorage
+    // Vérification basée sur sessionStorage et localStorage
     const checkVIPAccess = () => {
-        const uid = sessionStorage.getItem('firebaseUID');
-        const email = sessionStorage.getItem('userEmail');
-        const isVIP = sessionStorage.getItem('isVIP');
+        const uid = sessionStorage.getItem('firebaseUID') || localStorage.getItem('firebaseUID');
+        const email = sessionStorage.getItem('userEmail') || localStorage.getItem('userEmail');
+        const isVIP = sessionStorage.getItem('isVIP') || localStorage.getItem('isVIP');
+        const authenticated = sessionStorage.getItem('authenticated') || localStorage.getItem('authenticated');
         
-        console.log('📋 Vérification session:', { uid, email, isVIP });
+        console.log('📋 Vérification session:', { uid, email, isVIP, authenticated });
         
-        if (uid && email && isVIP === 'true') {
+        // Vérifier si l'utilisateur est connecté via Firebase ou session
+        if ((uid && email && isVIP === 'true') || authenticated === 'true') {
             console.log('✅ Accès VIP autorisé');
+            // Synchroniser les données si manquantes
+            if (!sessionStorage.getItem('firebaseUID') && uid) {
+                sessionStorage.setItem('firebaseUID', uid);
+                sessionStorage.setItem('userEmail', email);
+                sessionStorage.setItem('isVIP', 'true');
+                sessionStorage.setItem('authenticated', 'true');
+            }
             document.body.style.visibility = 'visible';
             document.body.style.opacity = '1';
         } else {

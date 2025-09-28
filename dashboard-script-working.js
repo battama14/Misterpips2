@@ -101,7 +101,7 @@ class SimpleTradingDashboard {
         this.initCalendar();
         this.updateAccountDisplay();
         this.initCharts();
-        this.initCorrelationMatrix();
+        this.initICTAnalysis();
         this.initGauge();
         console.log('Dashboard initialized successfully');
     }
@@ -347,6 +347,11 @@ class SimpleTradingDashboard {
         this.updateElement('totalPnL', `$${totalPnL.toFixed(2)}`, totalPnL >= 0 ? 'positive' : 'negative');
         this.updateElement('winRate', `${winRate}%`);
         this.updateElement('capital', `$${currentCapital.toFixed(2)}`, totalPnL >= 0 ? 'positive' : 'negative');
+        
+        // Forcer la mise à jour des objectifs
+        setTimeout(() => {
+            this.updateCalendarStats();
+        }, 100);
     }
 
     updateElement(id, text, className = '') {
@@ -356,6 +361,8 @@ class SimpleTradingDashboard {
             if (className) {
                 element.className = className;
             }
+        } else {
+            console.warn(`Element with ID '${id}' not found. Value: ${text}`);
         }
     }
 
@@ -559,6 +566,7 @@ class SimpleTradingDashboard {
         Object.values(Chart.instances).forEach(chart => chart.destroy());
         setTimeout(() => {
             this.initCharts();
+            this.initICTAnalysis();
             this.initGauge();
             this.updateCalendarStats();
         }, 100);
@@ -577,6 +585,9 @@ class SimpleTradingDashboard {
             const pnl = parseFloat(trade.pnl || 0);
             const pnlClass = pnl > 0 ? 'positive' : pnl < 0 ? 'negative' : '';
             
+            const actualRiskPercent = this.calculateActualRiskPercent(trade);
+            const riskClass = this.getRiskClass(actualRiskPercent, trade.riskPercent || 2);
+            
             row.innerHTML = `
                 <td>${trade.date}</td>
                 <td>${trade.currency}</td>
@@ -585,17 +596,97 @@ class SimpleTradingDashboard {
                 <td>${trade.takeProfit}</td>
                 <td>${trade.lotSize}</td>
                 <td>${trade.riskPercent || 2}%</td>
+                <td class="${riskClass}">${actualRiskPercent}%</td>
                 <td>${trade.result || (trade.status === 'open' ? 'OPEN' : '-')}</td>
                 <td class="${pnlClass}">$${pnl.toFixed(2)}</td>
                 <td>
                     ${trade.status === 'open' ? 
-                        `<button class="btn-small btn-danger" onclick="dashboard.quickCloseTrade(${this.trades.indexOf(trade)})">Clôturer</button>` : 
+                        `<button class="btn-small btn-primary" onclick="dashboard.editTrade(${this.trades.indexOf(trade)})" style="margin-right: 5px;">Modifier</button><button class="btn-small btn-danger" onclick="dashboard.quickCloseTrade(${this.trades.indexOf(trade)})">Clôturer</button>` : 
                         '-'
                     }
                 </td>
             `;
             tbody.appendChild(row);
         });
+    }
+
+    editTrade(index) {
+        const trade = this.trades[index];
+        if (!trade || trade.status === 'closed') return;
+        
+        const modalContent = document.getElementById('modalContent');
+        if (!modalContent) return;
+        
+        modalContent.innerHTML = `
+            <h2>✏️ Modifier le Trade</h2>
+            <div class="trade-form">
+                <div class="form-group">
+                    <label>Instrument:</label>
+                    <select id="editCurrency">
+                        <option value="EUR/USD" ${trade.currency === 'EUR/USD' ? 'selected' : ''}>EUR/USD</option>
+                        <option value="GBP/USD" ${trade.currency === 'GBP/USD' ? 'selected' : ''}>GBP/USD</option>
+                        <option value="USD/JPY" ${trade.currency === 'USD/JPY' ? 'selected' : ''}>USD/JPY</option>
+                        <option value="AUD/USD" ${trade.currency === 'AUD/USD' ? 'selected' : ''}>AUD/USD</option>
+                        <option value="USD/CAD" ${trade.currency === 'USD/CAD' ? 'selected' : ''}>USD/CAD</option>
+                        <option value="XAU/USD" ${trade.currency === 'XAU/USD' ? 'selected' : ''}>XAU/USD (Or)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Point d'entrée:</label>
+                    <input type="number" id="editEntryPoint" step="0.00001" value="${trade.entryPoint}">
+                </div>
+                <div class="form-group">
+                    <label>Stop Loss:</label>
+                    <input type="number" id="editStopLoss" step="0.00001" value="${trade.stopLoss}">
+                </div>
+                <div class="form-group">
+                    <label>Take Profit:</label>
+                    <input type="number" id="editTakeProfit" step="0.00001" value="${trade.takeProfit}">
+                </div>
+                <div class="form-group">
+                    <label>Lot:</label>
+                    <input type="number" id="editLotSize" step="0.01" value="${trade.lotSize}">
+                </div>
+                <div class="form-buttons">
+                    <button class="btn-submit" onclick="dashboard.saveEditedTrade(${index})">Sauvegarder</button>
+                    <button class="btn-secondary" onclick="dashboard.closeModal()">Annuler</button>
+                </div>
+            </div>
+        `;
+        
+        this.showModal();
+    }
+
+    saveEditedTrade(index) {
+        const trade = this.trades[index];
+        if (!trade || trade.status === 'closed') return;
+        
+        const currency = document.getElementById('editCurrency')?.value;
+        const entryPoint = parseFloat(document.getElementById('editEntryPoint')?.value);
+        const stopLoss = parseFloat(document.getElementById('editStopLoss')?.value);
+        const takeProfit = parseFloat(document.getElementById('editTakeProfit')?.value);
+        const lotSize = parseFloat(document.getElementById('editLotSize')?.value);
+
+        if (!currency || !entryPoint || !stopLoss || !takeProfit || !lotSize) {
+            alert('Veuillez remplir tous les champs obligatoires');
+            return;
+        }
+
+        // Mettre à jour le trade
+        trade.currency = currency;
+        trade.entryPoint = entryPoint;
+        trade.stopLoss = stopLoss;
+        trade.takeProfit = takeProfit;
+        trade.lotSize = lotSize;
+        trade.modifiedAt = Date.now();
+        
+        this.saveData();
+        this.closeModal();
+        this.updateStats();
+        this.renderTradesTable();
+        this.renderCalendar();
+        
+        this.showNotification('Trade modifié avec succès!');
     }
 
     quickCloseTrade(index) {
@@ -634,6 +725,7 @@ class SimpleTradingDashboard {
         Object.values(Chart.instances).forEach(chart => chart.destroy());
         setTimeout(() => {
             this.initCharts();
+            this.initCorrelationMatrix();
             this.initGauge();
             this.updateCalendarStats();
         }, 100);
@@ -641,6 +733,53 @@ class SimpleTradingDashboard {
         this.closeModal();
         
         this.showNotification(`Trade ${trade.currency} clôturé en ${result}`);
+    }
+
+    calculateActualRiskPercent(trade) {
+        const entryPoint = parseFloat(trade.entryPoint);
+        const stopLoss = parseFloat(trade.stopLoss);
+        const lotSize = parseFloat(trade.lotSize);
+        const currency = trade.currency;
+        
+        if (!entryPoint || !stopLoss || !lotSize) return '0.00';
+        
+        // Calculer la perte potentielle en cas de SL
+        const priceDiff = Math.abs(entryPoint - stopLoss);
+        let potentialLoss = 0;
+        
+        if (currency === 'XAU/USD') {
+            potentialLoss = priceDiff * lotSize * 100;
+        } else if (currency.includes('JPY')) {
+            const pipDiff = priceDiff * 100;
+            potentialLoss = pipDiff * lotSize * 10;
+        } else {
+            const pipDiff = priceDiff * 10000;
+            potentialLoss = pipDiff * lotSize * 10;
+        }
+        
+        // Calculer le capital au moment du trade
+        const closedTrades = this.trades.filter(t => t.status === 'closed' && t.createdAt < trade.createdAt);
+        const totalPnL = closedTrades.reduce((sum, t) => sum + parseFloat(t.pnl || 0), 0);
+        const capitalAtTradeTime = (this.accounts[this.currentAccount]?.capital || this.settings.capital) + totalPnL;
+        
+        // Calculer le pourcentage de risque réel
+        const actualRiskPercent = (potentialLoss / capitalAtTradeTime) * 100;
+        
+        return actualRiskPercent.toFixed(2);
+    }
+    
+    getRiskClass(actualRisk, targetRisk) {
+        const actual = parseFloat(actualRisk);
+        const target = parseFloat(targetRisk);
+        const tolerance = 0.1; // Tolérance de 0.1%
+        
+        if (Math.abs(actual - target) <= tolerance) {
+            return 'risk-perfect'; // Vert - Risque parfait
+        } else if (actual < target) {
+            return 'risk-low'; // Bleu - Risque plus faible
+        } else {
+            return 'risk-high'; // Rouge - Risque plus élevé
+        }
     }
 
     calculatePnL(trade) {
@@ -757,58 +896,60 @@ class SimpleTradingDashboard {
         const month = this.currentCalendarDate.getMonth();
         const today = new Date();
         
+        // Calculer le capital actuel avec tous les trades fermés
+        const closedTrades = this.trades.filter(t => t.status === 'closed');
+        const totalPnL = closedTrades.reduce((sum, t) => sum + parseFloat(t.pnl || 0), 0);
         const initialCapital = this.accounts[this.currentAccount]?.capital || this.settings.capital;
-        const dailyTarget = (initialCapital * this.settings.dailyTarget / 100);
-        const weeklyTarget = (initialCapital * this.settings.weeklyTarget / 100);
-        const monthlyTarget = (initialCapital * this.settings.monthlyTarget / 100);
-        const yearlyTarget = (initialCapital * this.settings.yearlyTarget / 100);
+        const currentCapital = initialCapital + totalPnL;
+        
+        const dailyTarget = (currentCapital * this.settings.dailyTarget / 100);
+        const weeklyTarget = (currentCapital * this.settings.weeklyTarget / 100);
+        const monthlyTarget = (currentCapital * this.settings.monthlyTarget / 100);
+        const yearlyTarget = (currentCapital * this.settings.yearlyTarget / 100);
         
         // Stats du jour actuel
         const todayStr = today.toISOString().split('T')[0];
-        const todayTrades = this.trades.filter(t => t.date === todayStr);
+        const todayTrades = this.trades.filter(t => t.date === todayStr && t.status === 'closed');
         const todayPnL = todayTrades.reduce((sum, t) => sum + parseFloat(t.pnl || 0), 0);
         
-        // Stats de la semaine
+        // Stats de la semaine courante (lundi à dimanche)
         const weekStart = new Date(today);
-        weekStart.setDate(today.getDate() - today.getDay());
+        const dayOfWeek = today.getDay();
+        const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Si dimanche (0), alors 6 jours en arrière
+        weekStart.setDate(today.getDate() - daysToMonday);
+        weekStart.setHours(0, 0, 0, 0);
+        
         const weekEnd = new Date(weekStart);
         weekEnd.setDate(weekStart.getDate() + 6);
+        weekEnd.setHours(23, 59, 59, 999);
         
         const weekTrades = this.trades.filter(t => {
-            const tradeDate = new Date(t.date);
-            return tradeDate >= weekStart && tradeDate <= weekEnd;
+            const tradeDate = new Date(t.date + 'T00:00:00');
+            return tradeDate >= weekStart && tradeDate <= weekEnd && t.status === 'closed';
         });
         const weekPnL = weekTrades.reduce((sum, t) => sum + parseFloat(t.pnl || 0), 0);
         
-        // Stats du mois
+        // Stats du mois courant
+        const currentMonth = today.getMonth();
+        const currentYear = today.getFullYear();
         const monthTrades = this.trades.filter(t => {
-            const tradeDate = new Date(t.date);
-            return tradeDate.getFullYear() === year && tradeDate.getMonth() === month;
+            const tradeDate = new Date(t.date + 'T00:00:00');
+            return tradeDate.getFullYear() === currentYear && tradeDate.getMonth() === currentMonth && t.status === 'closed';
         });
         const monthPnL = monthTrades.reduce((sum, t) => sum + parseFloat(t.pnl || 0), 0);
         
-        // Stats de l'année
+        // Stats de l'année courante
         const yearTrades = this.trades.filter(t => {
-            const tradeDate = new Date(t.date);
-            return tradeDate.getFullYear() === year;
+            const tradeDate = new Date(t.date + 'T00:00:00');
+            return tradeDate.getFullYear() === currentYear && t.status === 'closed';
         });
         const yearPnL = yearTrades.reduce((sum, t) => sum + parseFloat(t.pnl || 0), 0);
         
-        // Mise à jour des éléments de stats s'ils existent
-        this.updateElement('todayPnL', `$${todayPnL.toFixed(2)}`, todayPnL >= 0 ? 'positive' : 'negative');
-        this.updateElement('weekPnL', `$${weekPnL.toFixed(2)}`, weekPnL >= 0 ? 'positive' : 'negative');
-        this.updateElement('monthPnL', `$${monthPnL.toFixed(2)}`, monthPnL >= 0 ? 'positive' : 'negative');
-        this.updateElement('yearPnL', `$${yearPnL.toFixed(2)}`, yearPnL >= 0 ? 'positive' : 'negative');
-        
-        // Mise à jour des cibles dans les encarts
-        this.updateElement('dailyTargetPercent', `${this.settings.dailyTarget}%`);
-        this.updateElement('dailyTarget', dailyTarget.toFixed(0));
-        this.updateElement('weeklyTargetPercent', `${this.settings.weeklyTarget}%`);
-        this.updateElement('weeklyTarget', weeklyTarget.toFixed(0));
-        this.updateElement('monthlyTargetPercent', `${this.settings.monthlyTarget}%`);
-        this.updateElement('monthlyTarget', monthlyTarget.toFixed(0));
-        this.updateElement('yearlyTargetPercent', `${this.settings.yearlyTarget}%`);
-        this.updateElement('yearlyTarget', yearlyTarget.toFixed(0));
+        // Calcul des WinRates
+        const todayWinRate = todayTrades.length > 0 ? (todayTrades.filter(t => parseFloat(t.pnl || 0) > 0).length / todayTrades.length * 100).toFixed(0) : 0;
+        const weekWinRate = weekTrades.length > 0 ? (weekTrades.filter(t => parseFloat(t.pnl || 0) > 0).length / weekTrades.length * 100).toFixed(0) : 0;
+        const monthWinRate = monthTrades.length > 0 ? (monthTrades.filter(t => parseFloat(t.pnl || 0) > 0).length / monthTrades.length * 100).toFixed(0) : 0;
+        const yearWinRate = yearTrades.length > 0 ? (yearTrades.filter(t => parseFloat(t.pnl || 0) > 0).length / yearTrades.length * 100).toFixed(0) : 0;
         
         // Progrès des objectifs
         const dailyProgress = dailyTarget > 0 ? Math.min((todayPnL / dailyTarget) * 100, 100).toFixed(1) : 0;
@@ -816,13 +957,32 @@ class SimpleTradingDashboard {
         const monthProgress = monthlyTarget > 0 ? Math.min((monthPnL / monthlyTarget) * 100, 100).toFixed(1) : 0;
         const yearProgress = yearlyTarget > 0 ? Math.min((yearPnL / yearlyTarget) * 100, 100).toFixed(1) : 0;
         
+        // Mise à jour des encarts avec toutes les informations
+        // Objectif Journalier
+        this.updateElement('dailyTargetPercent', `${this.settings.dailyTarget}%`);
+        this.updateElement('dailyTarget', dailyTarget.toFixed(0));
         this.updateElement('dailyProgress', `${dailyProgress}%`);
-        this.updateElement('weekProgress', `${weekProgress}%`);
-        this.updateElement('monthProgress', `${monthProgress}%`);
-        this.updateElement('yearProgress', `${yearProgress}%`);
         
-        // Calcul du rendement annuel
-        const totalPnL = this.trades.filter(t => t.status === 'closed').reduce((sum, t) => sum + parseFloat(t.pnl || 0), 0);
+        // Objectif Hebdomadaire
+        this.updateElement('weeklyTargetPercent', `${this.settings.weeklyTarget}%`);
+        this.updateElement('weeklyTarget', weeklyTarget.toFixed(0));
+        this.updateElement('weekProgress', `${weekProgress}%`);
+        
+        // Objectif Mensuel
+        this.updateElement('monthlyTargetPercent', `${this.settings.monthlyTarget}%`);
+        this.updateElement('monthlyTarget', monthlyTarget.toFixed(0));
+        this.updateElement('monthProgress', `${monthProgress}%`);
+        this.updateElement('monthPnL', `$${monthPnL.toFixed(2)}`, monthPnL >= 0 ? 'positive' : 'negative');
+        this.updateElement('monthWinRate', `${monthWinRate}%`);
+        
+        // Objectif Annuel
+        this.updateElement('yearlyTargetPercent', `${this.settings.yearlyTarget}%`);
+        this.updateElement('yearlyTarget', yearlyTarget.toFixed(0));
+        this.updateElement('yearProgress', `${yearProgress}%`);
+        this.updateElement('yearPnL', `$${yearPnL.toFixed(2)}`, yearPnL >= 0 ? 'positive' : 'negative');
+        this.updateElement('yearWinRate', `${yearWinRate}%`);
+        
+        // Calcul du rendement annuel total
         const yearReturn = ((totalPnL / initialCapital) * 100).toFixed(1);
         this.updateElement('yearReturn', `${yearReturn}%`);
         
@@ -832,25 +992,46 @@ class SimpleTradingDashboard {
         const monthProgressBar = document.getElementById('monthlyProgressBar');
         const yearProgressBar = document.getElementById('yearlyProgressBar');
         
+        console.log('Progress bars found:', {
+            daily: !!dailyProgressBar,
+            weekly: !!weekProgressBar, 
+            monthly: !!monthProgressBar,
+            yearly: !!yearProgressBar
+        });
+        
         if (dailyProgressBar) {
             dailyProgressBar.style.width = `${Math.min(dailyProgress, 100)}%`;
-            if (dailyProgress >= 100) dailyProgressBar.classList.add('completed');
+            dailyProgressBar.classList.toggle('completed', dailyProgress >= 100);
         }
         
         if (weekProgressBar) {
             weekProgressBar.style.width = `${Math.min(weekProgress, 100)}%`;
-            if (weekProgress >= 100) weekProgressBar.classList.add('completed');
+            weekProgressBar.classList.toggle('completed', weekProgress >= 100);
         }
         
         if (monthProgressBar) {
             monthProgressBar.style.width = `${Math.min(monthProgress, 100)}%`;
-            if (monthProgress >= 100) monthProgressBar.classList.add('completed');
+            monthProgressBar.classList.toggle('completed', monthProgress >= 100);
         }
         
         if (yearProgressBar) {
             yearProgressBar.style.width = `${Math.min(yearProgress, 100)}%`;
-            if (yearProgress >= 100) yearProgressBar.classList.add('completed');
+            yearProgressBar.classList.toggle('completed', yearProgress >= 100);
         }
+        
+        console.log('Stats mises à jour:', {
+            today: todayStr,
+            dailyPnL: todayPnL,
+            dailyTrades: todayTrades.length,
+            weeklyPnL: weekPnL,
+            weeklyTrades: weekTrades.length,
+            monthlyPnL: monthPnL,
+            monthlyTrades: monthTrades.length,
+            yearlyPnL: yearPnL,
+            yearlyTrades: yearTrades.length,
+            targets: { daily: dailyTarget, weekly: weeklyTarget, monthly: monthlyTarget, yearly: yearlyTarget },
+            progress: { daily: dailyProgress, weekly: weekProgress, monthly: monthProgress, yearly: yearProgress }
+        });
     }
 
     showModal() {
@@ -899,6 +1080,7 @@ class SimpleTradingDashboard {
             Object.values(Chart.instances).forEach(chart => chart.destroy());
             setTimeout(() => {
                 this.initCharts();
+                this.initCorrelationMatrix();
                 this.initGauge();
                 this.updateCalendarStats();
             }, 100);
@@ -961,6 +1143,7 @@ class SimpleTradingDashboard {
         Object.values(Chart.instances).forEach(chart => chart.destroy());
         setTimeout(() => {
             this.initCharts();
+            this.initCorrelationMatrix();
             this.initGauge();
             this.updateCalendarStats();
         }, 100);
@@ -1353,38 +1536,357 @@ class SimpleTradingDashboard {
         });
     }
 
-    initCorrelationMatrix() {
-        const container = document.getElementById('correlationMatrix');
-        if (!container) return;
-
-        const concepts = ['Contexte', 'Zone Inst.', 'Structure', 'Killzones', 'Signal', 'Risk Mgmt', 'Discipline'];
-        const correlationData = [
-            [100, 85, 75, 60, 70, 90, 80],
-            [85, 100, 80, 70, 85, 75, 70],
-            [75, 80, 100, 65, 90, 80, 75],
-            [60, 70, 65, 100, 55, 60, 85],
-            [70, 85, 90, 55, 100, 75, 70],
-            [90, 75, 80, 60, 75, 100, 95],
-            [80, 70, 75, 85, 70, 95, 100]
-        ];
-
-        let html = '<div class="correlation-grid">';
-        html += '<div class="correlation-cell header"></div>';
+    initICTAnalysis() {
+        this.calculateCorrelations();
+        setInterval(() => this.calculateCorrelations(), 30000);
+        this.watchForDataChanges();
         
-        concepts.forEach(concept => {
-            html += `<div class="correlation-cell header">${concept}</div>`;
+        // Bouton de rafraîchissement
+        const refreshBtn = document.getElementById('refreshCorrelations');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', () => {
+                this.calculateCorrelations();
+                const originalHTML = refreshBtn.innerHTML;
+                refreshBtn.innerHTML = '<i class="fas fa-check" style="color: #4ecdc4;"></i>';
+                setTimeout(() => {
+                    refreshBtn.innerHTML = originalHTML;
+                }, 1000);
+            });
+        }
+    }
+    
+    watchForDataChanges() {
+        const firebaseUID = sessionStorage.getItem('firebaseUID');
+        if (!firebaseUID) return;
+        
+        let lastDataHash = '';
+        
+        setInterval(() => {
+            try {
+                const savedData = localStorage.getItem(`dashboard_${firebaseUID}`);
+                if (savedData) {
+                    const currentHash = this.hashCode(savedData);
+                    if (currentHash !== lastDataHash) {
+                        lastDataHash = currentHash;
+                        this.calculateCorrelations();
+                        console.log('🔄 Données de trading mises à jour - Matrice ICT recalculée');
+                    }
+                }
+            } catch (error) {
+                console.error('Erreur surveillance données:', error);
+            }
+        }, 5000);
+    }
+    
+    hashCode(str) {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            const char = str.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash;
+        }
+        return hash;
+    }
+    
+    calculateCorrelations() {
+        const correlationMatrix = document.getElementById('correlationMatrix');
+        if (!correlationMatrix) return;
+        
+        correlationMatrix.innerHTML = '';
+        
+        const tradeData = this.getTradeStepsData();
+        
+        const matrix = document.createElement('div');
+        matrix.className = 'ict-correlation-matrix';
+        
+        const title = document.createElement('div');
+        title.className = 'matrix-title';
+        title.innerHTML = '<h3>🎯 Matrice de Corrélation ICT - Étapes de Trading</h3>';
+        matrix.appendChild(title);
+        
+        const ictSteps = [
+            { key: 'contextGlobal', name: 'Contexte Global', icon: '🌍' },
+            { key: 'zoneInstitutionnelle', name: 'Zone Institutionnelle', icon: '🏦' },
+            { key: 'structureMarche', name: 'Structure Marché', icon: '📈' },
+            { key: 'timingKillzones', name: 'Timing Killzones', icon: '⏰' },
+            { key: 'signalEntree', name: 'Signal Entrée', icon: '🎯' },
+            { key: 'riskManagement', name: 'Risk Management', icon: '🛡️' },
+            { key: 'discipline', name: 'Discipline', icon: '🧠' }
+        ];
+        
+        const header = document.createElement('div');
+        header.className = 'ict-correlation-row header';
+        header.innerHTML = '<div class="ict-correlation-cell corner">Étapes ICT</div>';
+        ictSteps.forEach(step => {
+            header.innerHTML += `<div class="ict-correlation-cell header-cell">${step.icon}<br>${step.name}</div>`;
         });
-
-        concepts.forEach((rowConcept, i) => {
-            html += `<div class="correlation-cell row-header">${rowConcept}</div>`;
-            correlationData[i].forEach((value, j) => {
-                const className = value >= 80 ? 'excellent' : value >= 60 ? 'good' : 'average';
-                html += `<div class="correlation-cell data ${className}">${value}%</div>`;
+        matrix.appendChild(header);
+        
+        ictSteps.forEach((step1, i) => {
+            const row = document.createElement('div');
+            row.className = 'ict-correlation-row';
+            row.innerHTML = `<div class="ict-correlation-cell row-header">${step1.icon} ${step1.name}</div>`;
+            
+            ictSteps.forEach((step2, j) => {
+                let correlation;
+                if (i === j) {
+                    correlation = 100;
+                } else {
+                    correlation = this.calculateICTStepCorrelation(step1.key, step2.key, tradeData);
+                }
+                
+                const cell = document.createElement('div');
+                cell.className = `ict-correlation-cell data-cell ${this.getICTCorrelationClass(correlation)}`;
+                cell.innerHTML = `<div class="correlation-value">${correlation}%</div>`;
+                cell.title = `Corrélation ${step1.name} ↔ ${step2.name}: ${correlation}%`;
+                
+                row.appendChild(cell);
+            });
+            
+            matrix.appendChild(row);
+        });
+        
+        const stats = this.calculateICTStats(tradeData);
+        const statsDiv = document.createElement('div');
+        statsDiv.className = 'ict-stats';
+        statsDiv.innerHTML = `
+            <div class="stats-row">
+                <div class="stat-item">
+                    <span class="stat-label">📈 Trades Analysés:</span>
+                    <span class="stat-value">${stats.totalTrades}</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">✅ Étapes Complètes:</span>
+                    <span class="stat-value">${stats.completeSteps}%</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">🎯 Efficacité Globale:</span>
+                    <span class="stat-value">${stats.globalEfficiency}%</span>
+                </div>
+            </div>
+        `;
+        matrix.appendChild(statsDiv);
+        
+        const updateIndicator = document.createElement('div');
+        updateIndicator.className = 'update-indicator';
+        updateIndicator.innerHTML = `
+            <small style="color: rgba(255, 255, 255, 0.6); text-align: center; display: block; margin-top: 10px;">
+                🔄 Dernière mise à jour: ${new Date().toLocaleTimeString()}
+                ${tradeData.hasData ? '| 📈 Données en temps réel' : '| ⚠️ Aucune donnée de trading'}
+            </small>
+        `;
+        correlationMatrix.appendChild(updateIndicator);
+        
+        correlationMatrix.appendChild(matrix);
+    }
+    
+    getTradeStepsData() {
+        try {
+            const firebaseUID = sessionStorage.getItem('firebaseUID');
+            if (!firebaseUID) return { trades: [], hasData: false };
+            
+            const savedData = localStorage.getItem(`dashboard_${firebaseUID}`);
+            if (savedData) {
+                const data = JSON.parse(savedData);
+                return {
+                    trades: data.trades || [],
+                    hasData: true
+                };
+            }
+        } catch (error) {
+            console.error('Erreur récupération données trades:', error);
+        }
+        return { trades: [], hasData: false };
+    }
+    
+    calculateICTStepCorrelation(step1, step2, tradeData) {
+        if (!tradeData.hasData || tradeData.trades.length === 0) {
+            return 0;
+        }
+        
+        const trades = tradeData.trades.filter(t => t.confluences && t.confluences[step1] && t.confluences[step2]);
+        
+        if (trades.length === 0) {
+            return 0;
+        }
+        
+        let positiveCorrelation = 0;
+        let totalComparisons = 0;
+        
+        trades.forEach(trade => {
+            const step1Value = this.getStepScore(trade.confluences[step1]);
+            const step2Value = this.getStepScore(trade.confluences[step2]);
+            const tradeResult = parseFloat(trade.pnl || 0) > 0 ? 1 : 0;
+            
+            if (step1Value >= 0.7 && step2Value >= 0.7 && tradeResult === 1) {
+                positiveCorrelation++;
+            }
+            totalComparisons++;
+        });
+        
+        const correlation = totalComparisons > 0 ? (positiveCorrelation / totalComparisons * 100) : 0;
+        return Math.round(correlation);
+    }
+    
+    getStepScore(stepValue) {
+        const scores = {
+            'Hausse + Discount': 0.9, 'Baisse + Premium': 0.9, 'Range': 0.5, 'Hausse + Premium': 0.3, 'Baisse + Discount': 0.3,
+            'Order Block Valide': 0.9, 'Fair Value Gap': 0.8, 'Liquidity Grab': 0.7, 'Aucune Zone': 0.1,
+            'CHOCH Confirmé': 0.9, 'BOS Confirmé': 0.8, 'Structure Unclear': 0.3, 'Faux Signal': 0.1,
+            'Killzone Londres': 0.9, 'Killzone New York': 0.9, 'Overlap': 0.8, 'Hors Killzone': 0.2,
+            'Pin Bar': 0.9, 'Doji': 0.8, 'Engulfing': 0.8, 'Signal Faible': 0.3,
+            'R:R ≥ 1:3': 0.9, 'R:R = 1:2': 0.7, 'R:R < 1:2': 0.3, 'SL Trop Large': 0.1,
+            'Plan Respecté': 0.9, 'Discipline OK': 0.8, 'Émotions Contrôlées': 0.7, 'Amélioration Nécessaire': 0.3
+        };
+        return scores[stepValue] || 0.5;
+    }
+    
+    calculateICTStats(tradeData) {
+        if (!tradeData.hasData || tradeData.trades.length === 0) {
+            return { totalTrades: 0, completeSteps: 0, globalEfficiency: 0 };
+        }
+        
+        const trades = tradeData.trades;
+        const tradesWithSteps = trades.filter(t => t.confluences && Object.keys(t.confluences).length > 0);
+        
+        let totalStepsCompleted = 0;
+        let totalPossibleSteps = 0;
+        let winningTradesWithCompleteSteps = 0;
+        
+        tradesWithSteps.forEach(trade => {
+            const stepCount = Object.keys(trade.confluences).length;
+            totalStepsCompleted += stepCount;
+            totalPossibleSteps += 7;
+            
+            if (stepCount === 7 && parseFloat(trade.pnl || 0) > 0) {
+                winningTradesWithCompleteSteps++;
+            }
+        });
+        
+        const completeSteps = totalPossibleSteps > 0 ? Math.round((totalStepsCompleted / totalPossibleSteps) * 100) : 0;
+        const globalEfficiency = tradesWithSteps.length > 0 ? Math.round((winningTradesWithCompleteSteps / tradesWithSteps.length) * 100) : 0;
+        
+        return { totalTrades: trades.length, completeSteps, globalEfficiency };
+    }
+    
+    getICTCorrelationClass(value) {
+        if (value >= 80) return 'ict-excellent';
+        if (value >= 60) return 'ict-good';
+        if (value >= 40) return 'ict-average';
+        if (value >= 20) return 'ict-poor';
+        return 'ict-none';
+    }
+    
+    calculateRealCorrelations(conceptKeys) {
+        const closedTrades = this.trades.filter(t => t.status === 'closed' && t.confluences);
+        
+        if (closedTrades.length === 0) {
+            // Données par défaut si pas de trades
+            return [
+                [100, 50, 50, 50, 50, 50, 50],
+                [50, 100, 50, 50, 50, 50, 50],
+                [50, 50, 100, 50, 50, 50, 50],
+                [50, 50, 50, 100, 50, 50, 50],
+                [50, 50, 50, 50, 100, 50, 50],
+                [50, 50, 50, 50, 50, 100, 50],
+                [50, 50, 50, 50, 50, 50, 100]
+            ];
+        }
+        
+        const correlationMatrix = [];
+        
+        conceptKeys.forEach((key1, i) => {
+            correlationMatrix[i] = [];
+            conceptKeys.forEach((key2, j) => {
+                if (i === j) {
+                    correlationMatrix[i][j] = 100;
+                } else {
+                    const correlation = this.calculateStepCorrelation(key1, key2, closedTrades);
+                    correlationMatrix[i][j] = correlation;
+                }
             });
         });
-
-        html += '</div>';
-        container.innerHTML = html;
+        
+        return correlationMatrix;
+    }
+    
+    calculateStepCorrelation(step1, step2, trades) {
+        let bothGoodAndWin = 0;
+        let totalBothGood = 0;
+        
+        trades.forEach(trade => {
+            const pnl = parseFloat(trade.pnl || 0);
+            const isWinningTrade = pnl > 0;
+            
+            if (trade.confluences[step1] && trade.confluences[step2]) {
+                const quality1 = this.getAnswerQuality(step1, trade.confluences[step1]);
+                const quality2 = this.getAnswerQuality(step2, trade.confluences[step2]);
+                
+                // Si les deux étapes sont bien validées
+                if (quality1 >= 0.7 && quality2 >= 0.7) {
+                    totalBothGood++;
+                    if (isWinningTrade) {
+                        bothGoodAndWin++;
+                    }
+                }
+            }
+        });
+        
+        if (totalBothGood === 0) return 50;
+        
+        const correlation = (bothGoodAndWin / totalBothGood) * 100;
+        return Math.round(correlation);
+    }
+    
+    getAnswerQuality(conceptKey, answer) {
+        // Définir la qualité des réponses pour chaque concept
+        const qualityMap = {
+            'contextGlobal': {
+                'Hausse + Discount': 0.9,
+                'Baisse + Premium': 0.9,
+                'Hausse + Premium': 0.4,
+                'Baisse + Discount': 0.4,
+                'Range': 0.3
+            },
+            'zoneInstitutionnelle': {
+                'Order Block Valide': 0.9,
+                'Fair Value Gap': 0.8,
+                'Liquidity Grab': 0.6,
+                'Aucune Zone': 0.2
+            },
+            'structureMarche': {
+                'CHOCH Confirmé': 0.9,
+                'BOS Confirmé': 0.8,
+                'Structure Unclear': 0.4,
+                'Faux Signal': 0.1
+            },
+            'timingKillzones': {
+                'Killzone Londres': 0.9,
+                'Killzone New York': 0.9,
+                'Overlap': 0.8,
+                'Hors Killzone': 0.3
+            },
+            'signalEntree': {
+                'Pin Bar': 0.9,
+                'Doji': 0.7,
+                'Engulfing': 0.8,
+                'Signal Faible': 0.2
+            },
+            'riskManagement': {
+                'R:R ≥ 1:3': 0.9,
+                'R:R = 1:2': 0.7,
+                'R:R < 1:2': 0.3,
+                'SL Trop Large': 0.1
+            },
+            'discipline': {
+                'Plan Respecté': 0.9,
+                'Discipline OK': 0.8,
+                'Émotions Contrôlées': 0.7,
+                'Amélioration Nécessaire': 0.3
+            }
+        };
+        
+        return qualityMap[conceptKey]?.[answer] || 0.5;
     }
 
     initGauge() {

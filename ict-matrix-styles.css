@@ -1,0 +1,221 @@
+/* Styles pour la matrice de corrélation ICT */
+.ict-correlation-matrix {
+    background: linear-gradient(135deg, rgba(30, 34, 45, 0.95), rgba(20, 25, 35, 0.95));
+    border-radius: 15px;
+    padding: 20px;
+    border: 2px solid rgba(0, 212, 255, 0.3);
+}
+
+.matrix-title {
+    text-align: center;
+    margin-bottom: 20px;
+    color: #00d4ff;
+    font-size: 1.2em;
+}
+
+.ict-correlation-row {
+    display: grid;
+    grid-template-columns: 200px repeat(7, 1fr);
+    gap: 3px;
+    margin-bottom: 3px;
+}
+
+.ict-correlation-cell {
+    padding: 12px 8px;
+    text-align: center;
+    border-radius: 8px;
+    font-size: 0.85em;
+    font-weight: bold;
+    transition: all 0.3s ease;
+    min-height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+}
+
+.ict-correlation-cell.corner {
+    background: linear-gradient(135deg, #00d4ff, #5b86e5);
+    color: white;
+    font-size: 1em;
+}
+
+.ict-correlation-cell.header-cell {
+    background: linear-gradient(135deg, #00d4ff, #5b86e5);
+    color: white;
+    font-size: 0.75em;
+    line-height: 1.2;
+}
+
+.ict-correlation-cell.row-header {
+    background: linear-gradient(135deg, #00d4ff, #5b86e5);
+    color: white;
+    text-align: left;
+    padding-left: 15px;
+    font-size: 0.8em;
+}
+
+.ict-correlation-cell.data-cell {
+    cursor: pointer;
+    position: relative;
+}
+
+.ict-correlation-cell.data-cell:hover {
+    transform: scale(1.05);
+    z-index: 10;
+    box-shadow: 0 5px 15px rgba(0, 212, 255, 0.4);
+}
+
+.correlation-value {
+    font-size: 1.1em;
+    font-weight: bold;
+}
+
+/* Classes de corrélation ICT */
+.ict-correlation-cell.ict-excellent {
+    background: linear-gradient(135deg, #4ecdc4, #44a08d);
+    color: white;
+}
+
+.ict-correlation-cell.ict-good {
+    background: linear-gradient(135deg, #5b86e5, #4a90e2);
+    color: white;
+}
+
+.ict-correlation-cell.ict-average {
+    background: linear-gradient(135deg, #ffc107, #ff9800);
+    color: #000;
+}
+
+.ict-correlation-cell.ict-poor {
+    background: linear-gradient(135deg, #ff6b6b, #ee5a52);
+    color: white;
+}
+
+.ict-correlation-cell.ict-none {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.5);
+    border: 2px dashed rgba(255, 255, 255, 0.2);
+}
+
+/* Statistiques ICT */
+.ict-stats {
+    margin-top: 20px;
+    padding: 15px;
+    background: rgba(0, 212, 255, 0.1);
+    border-radius: 10px;
+    border: 1px solid rgba(0, 212, 255, 0.3);
+}
+
+.stats-row {
+    display: flex;
+    justify-content: space-around;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.stat-label {
+    font-size: 0.9em;
+    color: rgba(255, 255, 255, 0.8);
+    margin-bottom: 5px;
+}
+
+.stat-value {
+    font-size: 1.4em;
+    font-weight: bold;
+    color: #00d4ff;
+}
+
+/* Responsive pour la matrice ICT */
+@media (max-width: 1200px) {
+    .ict-correlation-row {
+        grid-template-columns: 150px repeat(7, 1fr);
+    }
+    
+    .ict-correlation-cell {
+        font-size: 0.75em;
+        padding: 8px 4px;
+        min-height: 50px;
+    }
+}
+
+@media (max-width: 768px) {
+    .ict-correlation-row {
+        grid-template-columns: 120px repeat(7, 1fr);
+    }
+    
+    .ict-correlation-cell {
+        font-size: 0.65em;
+        padding: 6px 2px;
+        min-height: 40px;
+    }
+    
+    .stats-row {
+        flex-direction: column;
+        gap: 10px;
+    }
+}
+
+/* Indicateur de mise à jour */
+.update-indicator {
+    margin-top: 15px;
+    padding: 10px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Animation pour le bouton de rafraîchissement */
+.refresh-btn {
+    transition: all 0.3s ease;
+    background: rgba(0, 212, 255, 0.2);
+    border: 1px solid rgba(0, 212, 255, 0.4);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #00d4ff;
+    font-size: 1.2em;
+}
+
+.refresh-btn:hover {
+    transform: rotate(180deg);
+    color: #00d4ff;
+    background: rgba(0, 212, 255, 0.3);
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.card-header h3 {
+    color: #00d4ff;
+    font-size: 1.3em;
+    margin: 0;
+}
+
+.correlation-card {
+    background: linear-gradient(135deg, rgba(30, 34, 45, 0.95), rgba(20, 25, 35, 0.95));
+    border: 2px solid rgba(0, 212, 255, 0.4);
+    border-radius: 15px;
+    padding: 20px;
+    transition: all 0.3s ease;
+}
+
+.correlation-card:hover {
+    border-color: rgba(0, 212, 255, 0.6);
+    transform: translateY(-2px);
+}

@@ -5,12 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard Trading</title>
     <link rel="stylesheet" href="dashboard-styles.css">
+    <link rel="stylesheet" href="vip-styles-new.css">
+    <link rel="stylesheet" href="mobile-responsive.css">
+    <link rel="stylesheet" href="ict-matrix-styles.css">
+    <link rel="manifest" href="/manifest.json">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js';
         import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js';
-        import { getDatabase, ref, set, get, onValue } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js';
+        import { getDatabase, ref, set, get, onValue, push } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js';
+        import { getMessaging, getToken, onMessage } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-messaging.js';
         
         const firebaseConfig = {
             apiKey: "AIzaSyDSDK0NfVSs_VQb3TnrixiJbOpTsmoUMvU",
@@ -25,6 +30,7 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getDatabase(app);
+        const messaging = getMessaging(app);
         
         // Activer Firebase avec authentification existante
         window.firebaseDB = db;
@@ -155,14 +161,18 @@
                 </div>
             </div>
             
-            <div class="chart-container" style="margin-top: 30px; padding: 25px; height: 550px;">
-                <h3>🔗 Matrice de Corrélation ICT</h3>
-                <div id="correlationMatrix" style="font-size: 0.9em; margin: 20px 0;"></div>
-                <div class="correlation-legend" style="margin-top: 20px;">
-                    <div class="legend-item"><span class="legend-color excellent"></span>Excellente (>80%)</div>
-                    <div class="legend-item"><span class="legend-color good"></span>Bonne (60-80%)</div>
-                    <div class="legend-item"><span class="legend-color average"></span>Moyenne (40-60%)</div>
-                    <div class="legend-item"><span class="legend-color poor"></span>Faible (<40%)</div>
+            <div class="chart-container" style="margin-top: 30px; padding: 25px; height: 900px;">
+                <h3>🔗 Matrice de Corrélation ICT - Étapes de Trading</h3>
+                <div class="dashboard-card correlation-card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-brain"></i> Analyse ICT en Temps Réel</h3>
+                        <div class="refresh-btn" id="refreshCorrelations">
+                            <i class="fas fa-sync-alt"></i>
+                        </div>
+                    </div>
+                    <div class="correlation-matrix" id="correlationMatrix">
+                        <!-- Matrice générée dynamiquement -->
+                    </div>
                 </div>
             </div>
 
@@ -235,6 +245,8 @@
                             </div>
                         </div>
                     </div>
+                    
+
                 </div>
             </div>
 
@@ -279,6 +291,7 @@
                             <th>TP</th>
                             <th>Lot</th>
                             <th>Risque %</th>
+                            <th>Risque Réel</th>
                             <th>Résultat</th>
                             <th>Gain/Perte</th>
                             <th>Actions</th>
@@ -389,6 +402,7 @@
     </div>
 
     <script src="simple-vip-security.js"></script>
+    <script src="mobile-menu.js"></script>
     <script src="dashboard-script-working.js"></script>
     <script>
         document.getElementById('historyTradeBtn').addEventListener('click', () => {
@@ -623,6 +637,64 @@
         <button onclick="window.location.href='vip-space.html'" style="background: rgba(0, 212, 255, 0.8); color: white; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; backdrop-filter: blur(10px); transition: all 0.3s ease;">🔙 Retour VIP</button>
     </div>
     
+    <!-- Bouton Chat Flottant -->
+    <div id="chatToggle" class="chat-toggle">
+        💬
+        <span class="chat-badge" id="chatBadge">0</span>
+    </div>
+    
+    <!-- Fenêtre Chat Flottante -->
+    <div id="chatWindow" class="chat-window">
+        <div class="chat-header">
+            <h4>💬 Chat VIP</h4>
+            <div class="chat-controls">
+                <button id="chatSettingsBtn" class="chat-settings-btn">⚙️</button>
+                <button id="closeChatBtn" class="close-chat-btn">×</button>
+            </div>
+        </div>
+        <div class="chat-messages" id="chatMessages"></div>
+        <div class="chat-input-area">
+            <div class="chat-toolbar">
+                <button class="tool-btn" id="emojiToggle">😀</button>
+                <button class="tool-btn" id="fileBtn">📁</button>
+                <button class="tool-btn" id="gifBtn">GIF</button>
+            </div>
+            <div class="emoji-picker-panel" id="emojiPanel">
+                <div class="emoji-categories">
+                    <button class="emoji-cat active" data-cat="smileys">😀</button>
+                    <button class="emoji-cat" data-cat="people">👍</button>
+                    <button class="emoji-cat" data-cat="nature">🌱</button>
+                    <button class="emoji-cat" data-cat="food">🍔</button>
+                    <button class="emoji-cat" data-cat="travel">✈️</button>
+                    <button class="emoji-cat" data-cat="objects">💰</button>
+                    <button class="emoji-cat" data-cat="symbols">❤️</button>
+                </div>
+                <div class="emoji-grid" id="emojiGrid"></div>
+            </div>
+            <input type="file" id="fileInput" accept="image/*,audio/*" style="display: none;">
+            <div class="input-container">
+                <input type="text" id="chatInput" placeholder="Tapez votre message..." maxlength="200">
+                <button id="sendMessage" class="send-btn">➤</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal Pseudo -->
+    <div id="nicknameModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>👤 Choisir votre pseudo</h3>
+            </div>
+            <div class="modal-body">
+                <p>Choisissez un pseudo pour le chat et le classement :</p>
+                <input type="text" id="nicknameInput" placeholder="Votre pseudo..." maxlength="20">
+                <div class="form-actions">
+                    <button id="saveNickname" class="btn-primary">Sauvegarder</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
     <script>
         // Gestionnaire du classement VIP simplifié
         class VIPRanking {
@@ -696,8 +768,9 @@
                 for (const [userId, userData] of Object.entries(users)) {
                     if (userData.isVIP) {
                         const { dailyPnL, tradeCount } = await this.getUserStats(userId, today);
+                        const displayName = await this.getDisplayNameForUser(userId, userData.email);
                         rankings.push({
-                            name: this.getDisplayName(userData.email),
+                            name: displayName,
                             dailyPnL,
                             tradeCount,
                             userId
@@ -803,7 +876,43 @@
                 }
             }
             
-            getDisplayName(email) {
+            async getDisplayName(email) {
+                const fullUID = sessionStorage.getItem('firebaseUID') || this.currentUser;
+                
+                try {
+                    if (window.firebaseDB) {
+                        const { ref, get } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js');
+                        const nicknameRef = ref(window.firebaseDB, `users/${fullUID}/nickname`);
+                        const snapshot = await get(nicknameRef);
+                        
+                        if (snapshot.exists()) {
+                            return snapshot.val();
+                        }
+                    }
+                } catch (error) {
+                    console.error('Erreur récupération pseudo:', error);
+                }
+                
+                if (!email) return 'Membre VIP';
+                const name = email.split('@')[0];
+                return name.charAt(0).toUpperCase() + name.slice(1);
+            }
+            
+            async getDisplayNameForUser(userId, email) {
+                try {
+                    if (window.firebaseDB) {
+                        const { ref, get } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js');
+                        const nicknameRef = ref(window.firebaseDB, `users/${userId}/nickname`);
+                        const snapshot = await get(nicknameRef);
+                        
+                        if (snapshot.exists()) {
+                            return snapshot.val();
+                        }
+                    }
+                } catch (error) {
+                    console.error('Erreur récupération pseudo:', error);
+                }
+                
                 if (!email) return 'Membre VIP';
                 const name = email.split('@')[0];
                 return name.charAt(0).toUpperCase() + name.slice(1);
@@ -859,8 +968,768 @@
         document.addEventListener('DOMContentLoaded', () => {
             setTimeout(() => {
                 new VIPRanking();
+                new VIPChat();
             }, 1000);
         });
+        
+        // Système de Chat VIP
+        class VIPChat {
+            constructor() {
+                this.currentUser = sessionStorage.getItem('firebaseUID') || 'trader_vip';
+                this.soundEnabled = localStorage.getItem('chatSoundEnabled') !== 'false';
+                this.pushEnabled = localStorage.getItem('chatPushEnabled') !== 'false';
+                this.init();
+            }
+            
+            async init() {
+                this.nickname = await this.getNickname();
+                await this.requestNotificationPermission();
+                await this.setupFCM();
+                this.setupChat();
+                this.loadMessages();
+                this.setupRealtimeListener();
+                this.scheduleReset();
+            }
+            
+            async requestNotificationPermission() {
+                if ('Notification' in window && 'serviceWorker' in navigator) {
+                    try {
+                        // Enregistrer le service worker
+                        const registration = await navigator.serviceWorker.register('/sw.js');
+                        console.log('Service Worker enregistré:', registration);
+                        
+                        if (Notification.permission === 'default') {
+                            const permission = await Notification.requestPermission();
+                            this.pushEnabled = permission === 'granted';
+                            localStorage.setItem('chatPushEnabled', this.pushEnabled);
+                        } else {
+                            this.pushEnabled = Notification.permission === 'granted';
+                        }
+                    } catch (error) {
+                        console.error('Erreur Service Worker:', error);
+                        this.pushEnabled = false;
+                    }
+                }
+            }
+            
+            async setupFCM() {
+                try {
+                    // Enregistrer le service worker FCM
+                    const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+                    
+                    // Obtenir le token FCM
+                    const token = await getToken(messaging, {
+                        vapidKey: 'BBJatJBegeXBJjoYq_d7vIxpfIZn0qejbtQ31Fdgz7HzTk7NU-sfgjNsRsgDDxzIUpzr4chavlwjCBTgYHhheCY',
+                        serviceWorkerRegistration: registration
+                    });
+                    
+                    if (token) {
+                        console.log('🔥 Token FCM:', token);
+                        // Sauvegarder le token pour l'utilisateur
+                        const userRef = ref(db, `users/${this.currentUser}/fcmToken`);
+                        await set(userRef, token);
+                    }
+                    
+                    // Écouter les messages en premier plan
+                    onMessage(messaging, (payload) => {
+                        console.log('📱 Message FCM reçu:', payload);
+                        this.showNotification(payload.notification.title, payload.notification.body);
+                    });
+                    
+                } catch (error) {
+                    console.error('❌ Erreur FCM:', error);
+                }
+            }
+            
+            async getNickname() {
+                const fullUID = sessionStorage.getItem('firebaseUID') || this.currentUser;
+                
+                try {
+                    if (window.firebaseDB) {
+                        const { ref, get } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js');
+                        const nicknameRef = ref(window.firebaseDB, `users/${fullUID}/nickname`);
+                        const snapshot = await get(nicknameRef);
+                        
+                        if (snapshot.exists()) {
+                            const nickname = snapshot.val();
+                            localStorage.setItem(`nickname_cache_${fullUID}`, nickname);
+                            return nickname;
+                        } else {
+                            // Vérifier le cache avant de demander
+                            const cachedNickname = localStorage.getItem(`nickname_cache_${fullUID}`);
+                            if (cachedNickname) {
+                                // Sauvegarder dans Firebase pour la prochaine fois
+                                try {
+                                    const { set } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js');
+                                    await set(nicknameRef, cachedNickname);
+                                } catch (saveError) {
+                                    console.error('Error saving cached nickname to Firebase:', saveError);
+                                }
+                                return cachedNickname;
+                            }
+                            
+                            const nickname = await this.promptForNickname();
+                            return nickname;
+                        }
+                    }
+                } catch (error) {
+                    console.error('Erreur récupération pseudo:', error);
+                    const cachedNickname = localStorage.getItem(`nickname_cache_${fullUID}`);
+                    if (cachedNickname) {
+                        return cachedNickname;
+                    }
+                }
+                
+                return 'Membre VIP';
+            }
+            
+            promptForNickname() {
+                return new Promise((resolve) => {
+                    const modal = document.getElementById('nicknameModal');
+                    modal.style.display = 'block';
+                    
+                    document.getElementById('saveNickname').onclick = async () => {
+                        const nickname = document.getElementById('nicknameInput').value.trim();
+                        if (nickname) {
+                            const fullUID = sessionStorage.getItem('firebaseUID') || this.currentUser;
+                            
+                            try {
+                                if (window.firebaseDB) {
+                                    const { ref, set } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js');
+                                    const nicknameRef = ref(window.firebaseDB, `users/${fullUID}/nickname`);
+                                    await set(nicknameRef, nickname);
+                                    // Mettre en cache
+                                    localStorage.setItem(`nickname_cache_${fullUID}`, nickname);
+                                }
+                                
+                                modal.style.display = 'none';
+                                resolve(nickname);
+                            } catch (error) {
+                                console.error('Erreur sauvegarde pseudo:', error);
+                                alert('Erreur lors de la sauvegarde du pseudo');
+                            }
+                        }
+                    };
+                });
+            }
+            
+            showNicknameModal() {
+                const modal = document.getElementById('nicknameModal');
+                modal.style.display = 'block';
+                
+                document.getElementById('saveNickname').onclick = async () => {
+                    const nickname = document.getElementById('nicknameInput').value.trim();
+                    if (nickname) {
+                        const fullUID = sessionStorage.getItem('firebaseUID') || this.currentUser;
+                        
+                        try {
+                            if (window.firebaseDB) {
+                                const { ref, set } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js');
+                                const nicknameRef = ref(window.firebaseDB, `users/${fullUID}/nickname`);
+                                await set(nicknameRef, nickname);
+                                // Mettre à jour le cache
+                                localStorage.setItem(`nickname_cache_${fullUID}`, nickname);
+                            }
+                            
+                            this.nickname = nickname;
+                            modal.style.display = 'none';
+                        } catch (error) {
+                            console.error('Erreur sauvegarde pseudo:', error);
+                            alert('Erreur lors de la sauvegarde du pseudo');
+                        }
+                    }
+                };
+            }
+            
+            setupChat() {
+                const sendBtn = document.getElementById('sendMessage');
+                const chatInput = document.getElementById('chatInput');
+                const chatToggle = document.getElementById('chatToggle');
+                const chatWindow = document.getElementById('chatWindow');
+                const closeChatBtn = document.getElementById('closeChatBtn');
+                
+                this.messageCount = 0;
+                this.lastMessageTime = parseInt(localStorage.getItem('lastChatCheck')) || 0;
+                
+                // Initialiser le badge à zéro
+                const badge = document.getElementById('chatBadge');
+                badge.textContent = '0';
+                badge.style.display = 'none';
+                
+                sendBtn.onclick = () => this.sendMessage();
+                chatInput.onkeypress = (e) => {
+                    if (e.key === 'Enter') this.sendMessage();
+                };
+                
+                chatToggle.onclick = () => {
+                    chatWindow.classList.toggle('show');
+                    if (chatWindow.classList.contains('show')) {
+                        this.resetBadge();
+                    }
+                };
+                
+                closeChatBtn.onclick = () => {
+                    chatWindow.classList.remove('show');
+                };
+                
+                const chatSettingsBtn = document.getElementById('chatSettingsBtn');
+                chatSettingsBtn.onclick = () => {
+                    this.showSettings();
+                };
+                
+                // Initialiser les nouvelles fonctionnalités
+                setTimeout(() => {
+                    initEmojiPicker();
+                    initFileUpload();
+                    initGifSearch();
+                    window.vipChat = this;
+                }, 100);
+            }
+            
+            async sendMessage() {
+                const input = document.getElementById('chatInput');
+                const message = input.value.trim();
+                
+                if (!message) return;
+                
+                const messageData = {
+                    id: Date.now(),
+                    userId: this.currentUser,
+                    nickname: this.nickname,
+                    message: message,
+                    timestamp: Date.now(),
+                    date: new Date().toISOString().split('T')[0]
+                };
+                
+                try {
+                    if (window.firebaseDB) {
+                        const messagesRef = ref(window.firebaseDB, 'vip_chat');
+                        await push(messagesRef, messageData);
+                        
+                        // Envoyer notification push aux autres utilisateurs
+                        await this.sendPushNotification(messageData);
+                    }
+                    
+                    input.value = '';
+                } catch (error) {
+                    console.error('Erreur envoi message:', error);
+                }
+            }
+            
+            async loadMessages() {
+                try {
+                    if (window.firebaseDB) {
+                        const { ref, get } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js');
+                        const messagesRef = ref(window.firebaseDB, 'vip_chat');
+                        const snapshot = await get(messagesRef);
+                        
+                        if (snapshot.exists()) {
+                            const messages = Object.values(snapshot.val());
+                            const today = new Date().toISOString().split('T')[0];
+                            const todayMessages = messages.filter(msg => msg.date === today);
+                            this.displayMessages(todayMessages);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Erreur chargement messages:', error);
+                }
+            }
+            
+            async setupRealtimeListener() {
+                try {
+                    if (window.firebaseDB) {
+                        const { ref, onValue } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js');
+                        const messagesRef = ref(window.firebaseDB, 'vip_chat');
+                        
+                        onValue(messagesRef, (snapshot) => {
+                            if (snapshot.exists()) {
+                                const messages = Object.values(snapshot.val());
+                                const today = new Date().toISOString().split('T')[0];
+                                const todayMessages = messages.filter(msg => msg.date === today);
+                                this.displayMessages(todayMessages);
+                            }
+                        });
+                    }
+                } catch (error) {
+                    console.error('Erreur listener temps réel:', error);
+                }
+            }
+            
+            displayMessages(messages) {
+                const chatMessages = document.getElementById('chatMessages');
+                messages.sort((a, b) => a.timestamp - b.timestamp);
+                
+                // Compter les nouveaux messages
+                const newMessages = messages.filter(msg => 
+                    msg.timestamp > this.lastMessageTime && msg.userId !== this.currentUser
+                );
+                
+                if (newMessages.length > 0 && !document.getElementById('chatWindow').classList.contains('show')) {
+                    this.updateBadge(newMessages.length);
+                    this.playNotificationSound();
+                    this.showPushNotification(newMessages[newMessages.length - 1]);
+                }
+                
+                let html = '';
+                messages.forEach(msg => {
+                    const time = new Date(msg.timestamp).toLocaleTimeString('fr-FR', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                    
+                    const isCurrentUser = msg.userId === this.currentUser;
+                    const messageClass = isCurrentUser ? 'message-own' : 'message-other';
+                    
+                    let content = '';
+                    if (msg.file) {
+                        if (msg.file.type.startsWith('image/')) {
+                            content = `<img src="${msg.file.data}" alt="${msg.file.name}" class="message-image">`;
+                        } else if (msg.file.type.startsWith('audio/')) {
+                            content = `<audio controls class="message-audio"><source src="${msg.file.data}" type="${msg.file.type}"></audio>`;
+                        } else {
+                            content = `<div class="message-file">📁 ${msg.file.name}</div>`;
+                        }
+                    } else if (msg.message.includes('[GIF:')) {
+                        const gifUrl = msg.message.match(/\[GIF:(.+?)\]/)?.[1];
+                        if (gifUrl) {
+                            content = `<img src="${gifUrl}" alt="GIF" class="message-gif">`;
+                        } else {
+                            content = msg.message;
+                        }
+                    } else {
+                        content = msg.message;
+                    }
+                    
+                    html += `
+                        <div class="chat-message ${messageClass}">
+                            <div class="message-header">
+                                <span class="message-nickname">${msg.nickname}</span>
+                                <span class="message-time">${time}</span>
+                            </div>
+                            <div class="message-content">${content}</div>
+                        </div>
+                    `;
+                });
+                
+                chatMessages.innerHTML = html;
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+                
+                // Mettre à jour le timestamp de dernière vérification
+                if (messages.length > 0) {
+                    this.lastMessageTime = Math.max(...messages.map(m => m.timestamp));
+                    localStorage.setItem('lastChatCheck', this.lastMessageTime);
+                }
+            }
+            
+            scheduleReset() {
+                const now = new Date();
+                const tomorrow = new Date(now);
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                tomorrow.setHours(0, 0, 0, 0);
+                
+                const timeUntilMidnight = tomorrow.getTime() - now.getTime();
+                
+                setTimeout(() => {
+                    this.resetChat();
+                    setInterval(() => this.resetChat(), 24 * 60 * 60 * 1000);
+                }, timeUntilMidnight);
+            }
+            
+            async resetChat() {
+                try {
+                    if (window.firebaseDB) {
+                        const { ref, remove } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js');
+                        const messagesRef = ref(window.firebaseDB, 'vip_chat');
+                        await remove(messagesRef);
+                    }
+                    
+                    document.getElementById('chatMessages').innerHTML = '<div class="chat-reset">💬 Nouveau jour, nouveau chat !</div>';
+                } catch (error) {
+                    console.error('Erreur reset chat:', error);
+                }
+            }
+        }
+        
+        // Système d'émojis complet
+        const emojiData = {
+            smileys: ['😀', '😁', '😂', '😃', '😄', '😅', '😆', '😉', '😊', '😋', '😎', '😍', '😘', '😗', '😙', '😚', '🙂', '🤗', '🤔', '😐', '😑', '😶', '🙄', '😏', '😣', '😥', '😮', '🤐', '😯'],
+            people: ['👍', '👎', '👌', '✌️', '🤞', '🤟', '🤘', '👊', '✊', '👐', '🙏', '✍️', '💪', '🦾', '🦵', '🦶', '👶', '👧', '👦', '👩', '👨', '👴', '👵', '👱', '👳', '👷'],
+            nature: ['🌱', '🌲', '🌳', '🌴', '🌵', '🌷', '🌸', '🌹', '🌺', '🌻', '🌼', '🌽', '🌾', '🌿', '☘️', '🍀', '🍁', '🍂', '🍃', '🍄', '🐝', '🐛', '🐜', '🐞', '🐟', '🐠', '🐡'],
+            food: ['🍔', '🍟', '🍕', '🌭', '🌮', '🌯', '🥙', '🥚', '🍳', '🥓', '🥞', '🧀', '🍖', '🍗', '🥩', '🍝', '🍜', '🍲', '🍥', '🍣', '🍱', '🍛', '🍙', '🍚', '🍘', '🍠'],
+            travel: ['✈️', '🚂', '🚃', '🚄', '🚅', '🚆', '🚇', '🚈', '🚉', '🚊', '🚝', '🚞', '🚋', '🚌', '🚍', '🚎', '🚐', '🚑', '🚒', '🚓', '🚔', '🚕', '🚖', '🚗', '🚘', '🚙'],
+            objects: ['💰', '💸', '💵', '💴', '💶', '💷', '💳', '💱', '💲', '⚖️', '🔧', '🔨', '⚒️', '🔩', '⛏️', '🔪', '🗡️', '⚔️', '🔫', '🏹', '🔰', '⚰️', '⚱️', '🏺', '🔮', '📿', '📠'],
+            symbols: ['❤️', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔', '❣️', '💕', '💖', '💗', '💘', '💙', '💚', '💛', '💜', '💝', '💞', '💟', '♥️', '♠️', '♦️', '♣️', '💬', '🗨️']
+        };
+        
+        function initEmojiPicker() {
+            const emojiToggle = document.getElementById('emojiToggle');
+            const emojiPanel = document.getElementById('emojiPanel');
+            const emojiGrid = document.getElementById('emojiGrid');
+            const categories = document.querySelectorAll('.emoji-cat');
+            
+            let isOpen = false;
+            
+            emojiToggle.onclick = () => {
+                isOpen = !isOpen;
+                emojiPanel.style.display = isOpen ? 'block' : 'none';
+                if (isOpen) loadEmojis('smileys');
+            };
+            
+            categories.forEach(cat => {
+                cat.onclick = () => {
+                    categories.forEach(c => c.classList.remove('active'));
+                    cat.classList.add('active');
+                    loadEmojis(cat.dataset.cat);
+                };
+            });
+            
+            function loadEmojis(category) {
+                emojiGrid.innerHTML = '';
+                emojiData[category].forEach(emoji => {
+                    const btn = document.createElement('button');
+                    btn.className = 'emoji-item';
+                    btn.textContent = emoji;
+                    btn.onclick = () => insertEmoji(emoji);
+                    emojiGrid.appendChild(btn);
+                });
+            }
+        }
+        
+        function insertEmoji(emoji) {
+            const input = document.getElementById('chatInput');
+            input.value += emoji;
+            input.focus();
+            document.getElementById('emojiPanel').style.display = 'none';
+        }
+        
+        function initFileUpload() {
+            const fileBtn = document.getElementById('fileBtn');
+            const fileInput = document.getElementById('fileInput');
+            
+            fileBtn.onclick = () => fileInput.click();
+            
+            fileInput.onchange = (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    if (file.size > 5 * 1024 * 1024) {
+                        alert('Fichier trop volumineux (max 5MB)');
+                        return;
+                    }
+                    
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const fileData = {
+                            name: file.name,
+                            type: file.type,
+                            data: e.target.result,
+                            size: file.size
+                        };
+                        sendFileMessage(fileData);
+                    };
+                    reader.readAsDataURL(file);
+                }
+            };
+        }
+        
+        async function sendFileMessage(fileData) {
+            const messageData = {
+                id: Date.now(),
+                userId: window.vipChat.currentUser,
+                nickname: window.vipChat.nickname,
+                message: '',
+                file: fileData,
+                timestamp: Date.now(),
+                date: new Date().toISOString().split('T')[0]
+            };
+            
+            try {
+                if (window.firebaseDB) {
+                    const { ref, push } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js');
+                    const messagesRef = ref(window.firebaseDB, 'vip_chat');
+                    await push(messagesRef, messageData);
+                }
+            } catch (error) {
+                console.error('Erreur envoi fichier:', error);
+            }
+        }
+        
+        function initGifSearch() {
+            const gifBtn = document.getElementById('gifBtn');
+            gifBtn.onclick = () => {
+                const gifUrl = prompt('URL du GIF (Giphy, Tenor, etc.):');
+                if (gifUrl) {
+                    insertEmoji(`[GIF:${gifUrl}]`);
+                }
+            };
+        }
+        
+        window.insertEmoji = insertEmoji;
+        window.initEmojiPicker = initEmojiPicker;
+        window.initFileUpload = initFileUpload;
+        window.initGifSearch = initGifSearch;
+        
+        // Méthodes pour le badge et les notifications
+        VIPChat.prototype.updateBadge = function(count) {
+            const badge = document.getElementById('chatBadge');
+            const currentCount = parseInt(badge.textContent) || 0;
+            const newCount = currentCount + count;
+            
+            if (newCount > 0) {
+                badge.textContent = newCount > 99 ? '99+' : newCount;
+                badge.style.display = 'flex';
+            }
+        };
+        
+        VIPChat.prototype.resetBadge = function() {
+            const badge = document.getElementById('chatBadge');
+            badge.textContent = '0';
+            badge.style.display = 'none';
+        };
+        
+        VIPChat.prototype.playNotificationSound = function() {
+            const notificationsDisabled = localStorage.getItem('chatNotificationsDisabled') === 'true';
+            if (!this.soundEnabled || notificationsDisabled) return;
+            
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+                oscillator.frequency.setValueAtTime(600, audioContext.currentTime + 0.1);
+                
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+                
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.2);
+            } catch (error) {
+                console.log('Son de notification non disponible');
+            }
+        };
+        
+        VIPChat.prototype.showPushNotification = function(message) {
+            const notificationsDisabled = localStorage.getItem('chatNotificationsDisabled') === 'true';
+            if (!this.pushEnabled || !('Notification' in window) || notificationsDisabled) return;
+            
+            // Vérifier si on est sur mobile et que l'app n'est pas au premier plan
+            const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+            const isBackground = document.hidden || document.visibilityState === 'hidden';
+            const chatWindowOpen = document.getElementById('chatWindow').classList.contains('show');
+            
+            // Afficher la notification si :
+            // - On est sur mobile ET (en arrière-plan OU chat fermé)
+            // - Ou on est sur desktop et en arrière-plan
+            // - Ou envoyer notification push si site fermé
+            if ((isMobile && (isBackground || !chatWindowOpen)) || (!isMobile && isBackground)) {
+                // Envoyer aussi une notification push pour persistance
+                this.sendPushNotification(message);
+                const notificationOptions = {
+                    body: `${message.nickname}: ${message.message.substring(0, 50)}${message.message.length > 50 ? '...' : ''}`,
+                    icon: '/Misterpips.jpg',
+                    badge: '/Misterpips.jpg',
+                    tag: 'vip-chat',
+                    requireInteraction: false,
+                    silent: false
+                };
+                
+                // Ajouter vibration sur mobile (sauf iOS)
+                if (isMobile && !isIOS) {
+                    notificationOptions.vibrate = [200, 100, 200];
+                }
+                
+                // Essayer d'utiliser le service worker d'abord
+                if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                    navigator.serviceWorker.controller.postMessage({
+                        type: 'SHOW_NOTIFICATION',
+                        title: '💬 Nouveau message VIP',
+                        body: notificationOptions.body,
+                        icon: '/Misterpips.jpg'
+                    });
+                } else {
+                    // Fallback vers notification normale
+                    const notification = new Notification('💬 Nouveau message VIP', notificationOptions);
+                    
+                    notification.onclick = () => {
+                        window.focus();
+                        document.getElementById('chatWindow').classList.add('show');
+                        this.resetBadge();
+                        notification.close();
+                    };
+                    
+                    // Auto-fermer après 6 secondes (plus long sur mobile)
+                    setTimeout(() => notification.close(), isMobile ? 8000 : 5000);
+                }
+            } else {
+                // Si pas de conditions pour notification locale, envoyer quand même push
+                this.sendPushNotification(message);
+            }
+        };
+        
+        VIPChat.prototype.sendPushNotification = async function(message) {
+            try {
+                // Obtenir tous les tokens FCM des utilisateurs VIP
+                const usersRef = ref(db, 'users');
+                const snapshot = await get(usersRef);
+                
+                if (snapshot.exists()) {
+                    const users = snapshot.val();
+                    const tokens = [];
+                    
+                    Object.entries(users).forEach(([uid, userData]) => {
+                        if (userData.isVIP && userData.fcmToken && uid !== this.currentUser) {
+                            tokens.push(userData.fcmToken);
+                        }
+                    });
+                    
+                    if (tokens.length > 0) {
+                        // Stocker la notification pour envoi via Cloud Function
+                        const notificationData = {
+                            title: '💬 Nouveau message VIP',
+                            body: `${message.nickname}: ${message.message.substring(0, 50)}${message.message.length > 50 ? '...' : ''}`,
+                            tokens: tokens,
+                            timestamp: Date.now(),
+                            processed: false
+                        };
+                        
+                        const pendingRef = ref(db, 'pendingNotifications');
+                        await push(pendingRef, notificationData);
+                    }
+                }
+            } catch (error) {
+                console.error('Erreur envoi push notification:', error);
+            }
+        };
+        
+        VIPChat.prototype.showSettings = function() {
+            const notificationsDisabled = localStorage.getItem('chatNotificationsDisabled') === 'true';
+            const settingsHtml = `
+                <div class="chat-settings">
+                    <h4>Paramètres du Chat</h4>
+                    <div class="setting-item">
+                        <label>
+                            <input type="checkbox" id="notificationsToggle" ${!notificationsDisabled ? 'checked' : ''}>
+                            Activer toutes les notifications
+                        </label>
+                        <small style="color: rgba(255,255,255,0.6); font-size: 0.8em; display: block; margin-top: 5px;">
+                            Désactive complètement sons et notifications push
+                        </small>
+                    </div>
+                    <div class="setting-item" id="soundSetting" style="${notificationsDisabled ? 'opacity: 0.5; pointer-events: none;' : ''}">
+                        <label>
+                            <input type="checkbox" id="soundToggle" ${this.soundEnabled && !notificationsDisabled ? 'checked' : ''}>
+                            Sons de notification
+                        </label>
+                    </div>
+                    <div class="setting-item" id="pushSetting" style="${notificationsDisabled ? 'opacity: 0.5; pointer-events: none;' : ''}">
+                        <label>
+                            <input type="checkbox" id="pushToggle" ${this.pushEnabled && !notificationsDisabled ? 'checked' : ''}>
+                            Notifications push (mobile)
+                        </label>
+                        <small style="color: rgba(255,255,255,0.6); font-size: 0.8em; display: block; margin-top: 5px;">
+                            ${this.getNotificationHelp()}
+                        </small>
+                    </div>
+                    <div class="setting-item">
+                        <button id="changeNicknameBtn" class="setting-btn">Changer le pseudo</button>
+                    </div>
+                    <div class="setting-actions">
+                        <button id="saveSettingsBtn" class="setting-btn primary">Retour au chat</button>
+                    </div>
+                </div>
+            `;
+            
+            const chatMessages = document.getElementById('chatMessages');
+            chatMessages.innerHTML = settingsHtml;
+            
+            document.getElementById('notificationsToggle').onchange = (e) => {
+                const enabled = e.target.checked;
+                localStorage.setItem('chatNotificationsDisabled', !enabled);
+                
+                const soundSetting = document.getElementById('soundSetting');
+                const pushSetting = document.getElementById('pushSetting');
+                const soundToggle = document.getElementById('soundToggle');
+                const pushToggle = document.getElementById('pushToggle');
+                
+                if (enabled) {
+                    soundSetting.style.opacity = '1';
+                    soundSetting.style.pointerEvents = 'auto';
+                    pushSetting.style.opacity = '1';
+                    pushSetting.style.pointerEvents = 'auto';
+                } else {
+                    soundSetting.style.opacity = '0.5';
+                    soundSetting.style.pointerEvents = 'none';
+                    pushSetting.style.opacity = '0.5';
+                    pushSetting.style.pointerEvents = 'none';
+                    soundToggle.checked = false;
+                    pushToggle.checked = false;
+                    this.soundEnabled = false;
+                    this.pushEnabled = false;
+                    localStorage.setItem('chatSoundEnabled', false);
+                    localStorage.setItem('chatPushEnabled', false);
+                }
+            };
+            
+            document.getElementById('soundToggle').onchange = (e) => {
+                this.soundEnabled = e.target.checked;
+                localStorage.setItem('chatSoundEnabled', this.soundEnabled);
+            };
+            
+            document.getElementById('pushToggle').onchange = async (e) => {
+                if (e.target.checked) {
+                    const permission = await Notification.requestPermission();
+                    this.pushEnabled = permission === 'granted';
+                    e.target.checked = this.pushEnabled;
+                    
+                    if (this.pushEnabled) {
+                        // Tester la notification
+                        const testNotification = new Notification('🔔 Notifications activées', {
+                            body: 'Vous recevrez maintenant les notifications de chat sur mobile',
+                            icon: '/Misterpips.jpg',
+                            tag: 'test-notification',
+                            vibrate: /Android/.test(navigator.userAgent) ? [100, 50, 100] : undefined
+                        });
+                        
+                        setTimeout(() => testNotification.close(), 3000);
+                    }
+                } else {
+                    this.pushEnabled = false;
+                }
+                localStorage.setItem('chatPushEnabled', this.pushEnabled);
+                
+                // Afficher un message d'aide pour iOS
+                if (!this.pushEnabled && /iPad|iPhone|iPod/.test(navigator.userAgent)) {
+                    setTimeout(() => {
+                        alert('📱 Sur iOS: Pour recevoir les notifications, ajoutez ce site à votre écran d\'accueil via Safari > Partager > Sur l\'\u00e9cran d\'accueil');
+                    }, 500);
+                }
+            };
+            
+            document.getElementById('changeNicknameBtn').onclick = () => {
+                this.showNicknameModal();
+            };
+            
+            document.getElementById('saveSettingsBtn').onclick = () => {
+                this.loadMessages();
+            };
+        };
+        
+        VIPChat.prototype.getNotificationHelp = function() {
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+            const isAndroid = /Android/.test(navigator.userAgent);
+            
+            if (isIOS) {
+                return 'Sur iOS: Ajoutez le site à l\'\u00e9cran d\'accueil pour les notifications';
+            } else if (isAndroid) {
+                return 'Notifications push disponibles sur Android';
+            } else {
+                return 'Notifications disponibles sur mobile et en arrière-plan';
+            }
+        };
     </script>
 </body>
 </html>

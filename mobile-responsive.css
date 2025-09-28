@@ -1,0 +1,403 @@
+/* Mobile & Tablet Responsive Styles - Misterpips */
+/* Ne s'applique qu'aux écrans ≤ 1024px pour préserver la version desktop */
+
+@media screen and (max-width: 1024px) {
+    /* Global Mobile Styles */
+    * {
+        box-sizing: border-box;
+    }
+    
+    body {
+        font-size: 14px !important;
+        line-height: 1.4 !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        overflow-x: hidden !important;
+    }
+    
+    /* Header & Navigation */
+    header {
+        padding: 10px 15px !important;
+        position: relative !important;
+    }
+    
+    .logo {
+        height: 40px !important;
+        width: auto !important;
+    }
+    
+    nav ul.nav-links {
+        flex-direction: column !important;
+        position: absolute !important;
+        top: 100% !important;
+        left: 0 !important;
+        right: 0 !important;
+        background: rgba(26, 26, 46, 0.98) !important;
+        padding: 20px !important;
+        display: none !important;
+        z-index: 1000 !important;
+    }
+    
+    nav ul.nav-links.mobile-open {
+        display: flex !important;
+    }
+    
+    nav ul.nav-links li {
+        margin: 10px 0 !important;
+        width: 100% !important;
+    }
+    
+    nav ul.nav-links a {
+        display: block !important;
+        padding: 15px !important;
+        text-align: center !important;
+        border: 1px solid rgba(0, 212, 255, 0.3) !important;
+        border-radius: 8px !important;
+        margin: 5px 0 !important;
+    }
+    
+    /* Mobile Menu Button */
+    .mobile-menu-btn {
+        display: block !important;
+        background: none !important;
+        border: 2px solid #00d4ff !important;
+        color: #00d4ff !important;
+        font-size: 18px !important;
+        padding: 8px 12px !important;
+        border-radius: 5px !important;
+        cursor: pointer !important;
+    }
+    
+    /* Hero Section */
+    .hero-content {
+        padding: 30px 15px !important;
+        text-align: center !important;
+    }
+    
+    .hero-content h1 {
+        font-size: 2em !important;
+        margin-bottom: 15px !important;
+    }
+    
+    .hero-content p {
+        font-size: 1.1em !important;
+        margin-bottom: 20px !important;
+    }
+    
+    /* Containers */
+    .container {
+        padding: 0 15px !important;
+        max-width: 100% !important;
+    }
+    
+    .section {
+        padding: 30px 0 !important;
+    }
+    
+    /* Grids - Make them single column on mobile */
+    .prices-grid,
+    .sessions-grid,
+    .trends-grid,
+    .dashboard-grid,
+    .stats-grid {
+        grid-template-columns: 1fr !important;
+        gap: 15px !important;
+        padding: 0 15px !important;
+    }
+    
+    /* Cards */
+    .price-card,
+    .session-card,
+    .trend-item,
+    .dashboard-card,
+    .stat-card {
+        margin: 10px 0 !important;
+        padding: 15px !important;
+        min-height: auto !important;
+    }
+    
+    /* Forms */
+    .trade-form,
+    .form-container {
+        padding: 20px 15px !important;
+        margin: 10px !important;
+    }
+    
+    .form-group {
+        margin-bottom: 15px !important;
+    }
+    
+    input, select, textarea {
+        font-size: 16px !important;
+        padding: 12px !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+    
+    button {
+        font-size: 16px !important;
+        padding: 15px 20px !important;
+        width: 100% !important;
+        margin: 10px 0 !important;
+    }
+    
+    /* Tables */
+    .table-container {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+    }
+    
+    table {
+        min-width: 600px !important;
+        font-size: 12px !important;
+    }
+    
+    th, td {
+        padding: 8px 4px !important;
+        white-space: nowrap !important;
+    }
+    
+    /* Modal */
+    .modal-content {
+        width: 95% !important;
+        max-width: 500px !important;
+        margin: 5% auto !important;
+        padding: 20px !important;
+        max-height: 90vh !important;
+        overflow-y: auto !important;
+    }
+    
+    /* Charts */
+    .chart-container {
+        height: 250px !important;
+        margin: 15px 0 !important;
+    }
+    
+    /* ICT Correlation Matrix */
+    .ict-correlation-row {
+        grid-template-columns: 120px repeat(7, 1fr) !important;
+        gap: 2px !important;
+    }
+    
+    .ict-correlation-cell {
+        font-size: 0.7em !important;
+        padding: 6px 2px !important;
+        min-height: 35px !important;
+    }
+    
+    .ict-correlation-cell.row-header {
+        font-size: 0.65em !important;
+        padding-left: 8px !important;
+    }
+    
+    .ict-correlation-cell.header-cell {
+        font-size: 0.6em !important;
+        line-height: 1.1 !important;
+    }
+    
+    /* Calendar */
+    .calendar-grid {
+        grid-template-columns: repeat(7, 1fr) !important;
+        gap: 2px !important;
+    }
+    
+    .calendar-day {
+        min-height: 60px !important;
+        font-size: 0.8em !important;
+        padding: 5px !important;
+    }
+    
+    .calendar-date {
+        font-size: 0.9em !important;
+    }
+    
+    .trade-count, .trade-pnl {
+        font-size: 0.7em !important;
+    }
+    
+    /* Plan Stats */
+    .plan-stats {
+        grid-template-columns: 1fr 1fr !important;
+        gap: 10px !important;
+    }
+    
+    .objective-card {
+        padding: 15px !important;
+        margin: 5px 0 !important;
+    }
+    
+    .objective-title {
+        font-size: 0.9em !important;
+    }
+    
+    .objective-value {
+        font-size: 1.2em !important;
+    }
+    
+    /* VIP Chat */
+    .vip-chat-container {
+        width: 100% !important;
+        height: 100vh !important;
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        border-radius: 0 !important;
+    }
+    
+    .chat-messages {
+        height: calc(100vh - 120px) !important;
+    }
+    
+    .chat-input-container {
+        padding: 15px !important;
+    }
+    
+    /* VIP Ranking */
+    .vip-ranking {
+        padding: 15px !important;
+    }
+    
+    .ranking-item {
+        padding: 10px !important;
+        margin: 5px 0 !important;
+    }
+    
+    /* Dashboard Specific */
+    .dashboard-header {
+        flex-direction: column !important;
+        gap: 15px !important;
+        padding: 15px !important;
+    }
+    
+    .account-selector {
+        width: 100% !important;
+        margin: 10px 0 !important;
+    }
+    
+    .dashboard-actions {
+        flex-wrap: wrap !important;
+        gap: 10px !important;
+    }
+    
+    .dashboard-actions button {
+        flex: 1 1 calc(50% - 5px) !important;
+        min-width: 120px !important;
+    }
+    
+    /* Status Indicators */
+    .status-indicator {
+        flex-direction: column !important;
+        gap: 10px !important;
+        text-align: center !important;
+    }
+    
+    /* Footer */
+    footer {
+        padding: 20px 15px !important;
+    }
+    
+    .footer-content {
+        flex-direction: column !important;
+        text-align: center !important;
+        gap: 20px !important;
+    }
+    
+    /* Utility Classes */
+    .hide-mobile {
+        display: none !important;
+    }
+    
+    .show-mobile {
+        display: block !important;
+    }
+    
+    /* Text Sizes */
+    h1 { font-size: 1.8em !important; }
+    h2 { font-size: 1.5em !important; }
+    h3 { font-size: 1.3em !important; }
+    h4 { font-size: 1.1em !important; }
+    
+    /* Spacing */
+    .mb-mobile { margin-bottom: 20px !important; }
+    .mt-mobile { margin-top: 20px !important; }
+    .p-mobile { padding: 15px !important; }
+}
+
+/* Tablet Specific (768px - 1024px) */
+@media screen and (min-width: 768px) and (max-width: 1024px) {
+    .prices-grid,
+    .sessions-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+    
+    .plan-stats {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+    
+    .dashboard-actions button {
+        flex: 1 1 calc(33.333% - 7px) !important;
+    }
+    
+    .ict-correlation-row {
+        grid-template-columns: 150px repeat(7, 1fr) !important;
+    }
+    
+    .ict-correlation-cell {
+        font-size: 0.75em !important;
+        padding: 8px 4px !important;
+        min-height: 45px !important;
+    }
+}
+
+/* Phone Specific (≤ 767px) */
+@media screen and (max-width: 767px) {
+    body {
+        font-size: 13px !important;
+    }
+    
+    .hero-content h1 {
+        font-size: 1.6em !important;
+    }
+    
+    .modal-content {
+        width: 98% !important;
+        margin: 2% auto !important;
+        padding: 15px !important;
+    }
+    
+    .dashboard-actions button {
+        flex: 1 1 100% !important;
+    }
+    
+    .ict-correlation-row {
+        grid-template-columns: 100px repeat(7, 1fr) !important;
+    }
+    
+    .ict-correlation-cell {
+        font-size: 0.65em !important;
+        padding: 4px 2px !important;
+        min-height: 30px !important;
+    }
+    
+    .calendar-day {
+        min-height: 50px !important;
+        font-size: 0.7em !important;
+    }
+}
+
+/* Touch Improvements */
+@media (hover: none) and (pointer: coarse) {
+    button, .btn, a {
+        min-height: 44px !important;
+        min-width: 44px !important;
+    }
+    
+    .ict-correlation-cell.data-cell:hover {
+        transform: none !important;
+    }
+    
+    .ict-correlation-cell.data-cell:active {
+        transform: scale(0.95) !important;
+        background-color: rgba(0, 212, 255, 0.3) !important;
+    }
+}

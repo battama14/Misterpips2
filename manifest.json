@@ -1,0 +1,23 @@
+{
+  "name": "Misterpips VIP",
+  "short_name": "Misterpips",
+  "description": "Dashboard de trading professionnel avec chat VIP",
+  "start_url": "/trading-dashboard.html",
+  "display": "standalone",
+  "background_color": "#1a1a2e",
+  "theme_color": "#00d4ff",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/Misterpips.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg"
+    },
+    {
+      "src": "/Misterpips.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg"
+    }
+  ],
+  "gcm_sender_id": "574231126409"
+}

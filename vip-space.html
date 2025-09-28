@@ -6,6 +6,7 @@
     <title>Espace VIP - Misterpips</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="vip-styles.css">
+    <link rel="stylesheet" href="mobile-responsive.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js';
@@ -44,7 +45,8 @@
             <img src="Misterpips.jpg" alt="Misterpips Logo" class="logo">
         </div>
         <nav>
-            <ul class="nav-links">
+            <button class="mobile-menu-btn" id="mobileMenuBtn" style="display: none;">☰</button>
+            <ul class="nav-links" id="navLinks">
                 <li><a href="index.html">Accueil</a></li>
                 <li><a href="#dashboard">Dashboard</a></li>
                 <li><a href="#planning">Planning Forex</a></li>
@@ -53,11 +55,6 @@
                 <li><a href="#support">Support VIP</a></li>
                 <li><a href="#" onclick="logout()" class="logout-link">Déconnexion</a></li>
             </ul>
-            <div class="burger">
-                <div class="line1"></div>
-                <div class="line2"></div>
-                <div class="line3"></div>
-            </div>
         </nav>
     </header>
 
@@ -67,10 +64,10 @@
                 <h1>Bienvenue dans votre Espace VIP</h1>
                 <p>Accès exclusif aux outils professionnels de trading</p>
                 <div class="cta-buttons">
-                    <a href="#dashboard" class="cta-button">Accéder au Dashboard</a>
-                    <a href="planning-forex.html" class="telegram-button" target="_blank">
+                    <div class="cta-button" onclick="window.open('trading-dashboard.html', '_blank')" style="cursor: pointer;">Accéder au Dashboard</div>
+                    <div class="telegram-button" onclick="openPlanningForex()" style="cursor: pointer;">
                         <i class="fas fa-calendar-alt"></i> Planning Forex
-                    </a>
+                    </div>
                 </div>
             </div>
         </section>
@@ -116,7 +113,7 @@
             <div class="container">
                 <h2>Planning Forex</h2>
                 <div class="vip-features">
-                    <div class="feature-item clickable-feature" onclick="window.open('planning-forex.html', '_blank')">
+                    <div class="feature-item clickable-feature" onclick="openPlanningForex()">
                         <i class="fas fa-calendar-alt"></i>
                         <h4>Planning Forex Complet</h4>
                         <p>Sessions de trading, calendrier économique, horaires optimaux</p>
@@ -262,6 +259,7 @@
 
     <script src="simple-vip-security.js"></script>
     <script src="script-simple.js"></script>
+    <script src="mobile-menu.js"></script>
     <script type="module">
         import { signInWithEmailAndPassword } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js';
         
@@ -282,6 +280,9 @@
                 modal.style.display = 'none';
             }
         });
+        
+        // Rendre la fonction globale
+        window.openPlanningForex = openPlanningForex;
         
         // Gestion de la connexion admin avec Firebase
         document.getElementById('admin-login-form').addEventListener('submit', async (e) => {
@@ -382,6 +383,22 @@
                 `;
                 grid.appendChild(newsItem);
             });
+        }
+        
+        function openPlanningForex() {
+            // S'assurer que la session est bien sauvegardée
+            const uid = sessionStorage.getItem('firebaseUID');
+            const email = sessionStorage.getItem('userEmail');
+            
+            if (uid && email) {
+                localStorage.setItem('firebaseUID', uid);
+                localStorage.setItem('userEmail', email);
+                localStorage.setItem('isVIP', 'true');
+                localStorage.setItem('authenticated', 'true');
+            }
+            
+            // Ouvrir dans un nouvel onglet
+            window.open('planning-forex.html', '_blank');
         }
     </script>
 </body>

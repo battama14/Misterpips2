@@ -2107,6 +2107,25 @@ tr:hover {
     font-weight: bold;
 }
 
+/* Styles pour les classes de risque */
+.risk-perfect {
+    color: #4ecdc4 !important;
+    font-weight: bold;
+    background: transparent !important;
+}
+
+.risk-low {
+    color: #00d4ff !important;
+    font-weight: bold;
+    background: transparent !important;
+}
+
+.risk-high {
+    color: #ff6b6b !important;
+    font-weight: bold;
+    background: transparent !important;
+}
+
 #multipleTrades {
     margin-top: 15px;
     padding: 15px;
