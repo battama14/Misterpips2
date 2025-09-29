@@ -428,8 +428,34 @@
     <script src="dashboard-script-working.js"></script>
     <script>
         document.getElementById('historyTradeBtn').addEventListener('click', () => {
-            document.getElementById('historyTradeModal').style.display = 'block';
-            document.getElementById('tradeDate').value = new Date().toISOString().split('T')[0];
+            const modal = document.getElementById('historyTradeModal');
+            const dateInput = document.getElementById('tradeDate');
+            
+            modal.style.display = 'block';
+            
+            // Triple vérification pour s'assurer que la date est correcte
+            const setTodayDate = () => {
+                const today = new Date();
+                const localDate = new Date(today.getTime() - (today.getTimezoneOffset() * 60000));
+                const dateString = localDate.toISOString().split('T')[0];
+                dateInput.value = dateString;
+                console.log('Date définie:', dateString);
+            };
+            
+            // Définir immédiatement
+            setTodayDate();
+            
+            // Vérifier après un court délai
+            setTimeout(() => {
+                if (!dateInput.value) {
+                    setTodayDate();
+                }
+            }, 100);
+            
+            // Focus sur le premier champ
+            setTimeout(() => {
+                dateInput.focus();
+            }, 200);
         });
 
         function closeHistoryModal() {
@@ -496,9 +522,13 @@
                 if (result === 'TP') closePrice = takeProfit;
                 if (result === 'SL') closePrice = stopLoss;
                 
+                // Utiliser la date sélectionnée ou la date du jour
+                const selectedDate = document.getElementById('tradeDate').value;
+                const tradeDate = selectedDate || new Date().toLocaleDateString('en-CA'); // Format YYYY-MM-DD
+                
                 const tradeData = {
                     id: `trader_vip_${Date.now()}`,
-                    date: document.getElementById('tradeDate').value,
+                    date: tradeDate,
                     currency: document.getElementById('tradePair').value,
                     type: document.getElementById('tradeType').value,
                     lotSize: parseFloat(document.getElementById('tradeSize').value),
@@ -511,7 +541,8 @@
                     notes: document.getElementById('tradeNotes').value,
                     status: 'closed',
                     createdAt: Date.now(),
-                    isHistorical: true
+                    isHistorical: true,
+                    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
                 };
 
                 console.log('Trade data:', tradeData);
@@ -523,6 +554,9 @@
                     window.dashboard.updateStats();
                     window.dashboard.renderTradesTable();
                     window.dashboard.renderCalendar();
+                    
+                    // Synchroniser vers Firebase
+                    syncTradesToFirebase();
                     
                     // Détruire tous les graphiques Chart.js existants
                     Object.values(Chart.instances).forEach(chart => chart.destroy());
@@ -560,6 +594,35 @@
         }
         
         window.addHistoryTrade = addHistoryTrade;
+        
+        // Fonction utilitaire pour obtenir la date locale
+        function getTodayLocalDate() {
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const day = String(today.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+        
+        // Fonction pour synchroniser les dates avec Firebase
+        async function syncDateWithFirebase() {
+            try {
+                if (window.firebaseDB) {
+                    const { ref, set } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js');
+                    const dateRef = ref(window.firebaseDB, 'system/currentDate');
+                    await set(dateRef, {
+                        date: getTodayLocalDate(),
+                        timestamp: Date.now(),
+                        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+                    });
+                }
+            } catch (error) {
+                console.error('Erreur sync date Firebase:', error);
+            }
+        }
+        
+        // Synchroniser la date au chargement
+        syncDateWithFirebase();
 
         window.addEventListener('click', (e) => {
             const modal = document.getElementById('historyTradeModal');
@@ -1117,6 +1180,8 @@
             
             async getUserStats(userId, date) {
                 try {
+                    console.log(`🔍 Recherche stats pour userId: ${userId}, date: ${date}`);
+                    
                     if (window.firebaseDB) {
                         const { ref, get } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js');
                         
@@ -1131,36 +1196,47 @@
                         ];
                         
                         for (const path of paths) {
+                            console.log(`🔍 Vérification chemin: ${path}`);
                             const tradesRef = ref(window.firebaseDB, path);
                             const snapshot = await get(tradesRef);
                             
                             if (snapshot.exists()) {
+                                console.log(`✅ Données trouvées dans: ${path}`);
                                 const data = snapshot.val();
+                                console.log(`📊 Structure des données:`, Object.keys(data));
                                 let trades = [];
                                 
                                 // Si c'est un objet avec une propriété trades
                                 if (data.trades && Array.isArray(data.trades)) {
                                     trades = data.trades;
+                                    console.log(`📈 Trades array trouvé: ${trades.length} trades`);
                                 } else if (data.trades && typeof data.trades === 'object') {
                                     trades = Object.values(data.trades);
+                                    console.log(`📈 Trades object trouvé: ${trades.length} trades`);
                                 } else if (Array.isArray(data)) {
                                     trades = data;
+                                    console.log(`📈 Data est array: ${trades.length} trades`);
                                 } else if (typeof data === 'object') {
                                     // Essayer de trouver des trades dans l'objet
                                     trades = Object.values(data).filter(item => 
                                         item && typeof item === 'object' && item.currency && item.date
                                     );
+                                    console.log(`📈 Trades filtrés de l'objet: ${trades.length} trades`);
                                 }
                                 
                                 const todayTrades = trades.filter(trade => {
-                                    return trade && trade.date === date && 
-                                           (trade.status === 'closed' || trade.status === 'completed');
+                                    const isToday = trade && trade.date === date;
+                                    const isClosed = trade.status === 'closed' || trade.status === 'completed';
+                                    console.log(`Trade ${trade.id}: date=${trade.date}, status=${trade.status}, isToday=${isToday}, isClosed=${isClosed}`);
+                                    return isToday && isClosed;
                                 });
                                 const dailyPnL = todayTrades.reduce((total, trade) => {
                                     return total + (parseFloat(trade.pnl) || 0);
                                 }, 0);
-                                console.log(`Found ${todayTrades.length} trades for ${userId} on ${date}, P&L: ${dailyPnL}`);
+                                console.log(`✅ ${todayTrades.length} trades trouvés pour ${userId} le ${date}, P&L: ${dailyPnL}`);
                                 return { dailyPnL, tradeCount: todayTrades.length };
+                            } else {
+                                console.log(`❌ Pas de données dans: ${path}`);
                             }
                         }
                         
@@ -1169,36 +1245,47 @@
                             `dashboard_${userId}`,
                             `trading_${userId}`,
                             `user_${userId}`,
-                            userId
+                            userId,
+                            'dashboardData', // Clé principale du dashboard
+                            'misterpips_dashboard'
                         ];
+                        
+                        console.log(`🔍 Recherche dans localStorage pour ${userId}...`);
                         
                         for (const key of possibleKeys) {
                             const localData = localStorage.getItem(key);
                             if (localData) {
+                                console.log(`✅ Données localStorage trouvées dans: ${key}`);
                                 try {
                                     const data = JSON.parse(localData);
                                     let trades = [];
                                     
                                     if (data.trades && Array.isArray(data.trades)) {
                                         trades = data.trades;
+                                        console.log(`📈 Trades array localStorage: ${trades.length} trades`);
                                     } else if (data.trades && typeof data.trades === 'object') {
                                         trades = Object.values(data.trades);
+                                        console.log(`📈 Trades object localStorage: ${trades.length} trades`);
                                     }
                                     
                                     if (trades.length > 0) {
                                         const todayTrades = trades.filter(trade => {
-                                            return trade && trade.date === date && 
-                                                   (trade.status === 'closed' || trade.status === 'completed');
+                                            const isToday = trade && trade.date === date;
+                                            const isClosed = trade.status === 'closed' || trade.status === 'completed';
+                                            console.log(`LocalStorage Trade: date=${trade.date}, status=${trade.status}, isToday=${isToday}, isClosed=${isClosed}`);
+                                            return isToday && isClosed;
                                         });
                                         const dailyPnL = todayTrades.reduce((total, trade) => {
                                             return total + (parseFloat(trade.pnl) || 0);
                                         }, 0);
-                                        console.log(`Found ${todayTrades.length} local trades for ${userId} on ${date}, P&L: ${dailyPnL}`);
+                                        console.log(`✅ ${todayTrades.length} trades localStorage pour ${userId} le ${date}, P&L: ${dailyPnL}`);
                                         return { dailyPnL, tradeCount: todayTrades.length };
                                     }
                                 } catch (e) {
-                                    console.warn(`Error parsing localStorage for key ${key}:`, e);
+                                    console.warn(`❌ Erreur parsing localStorage ${key}:`, e);
                                 }
+                            } else {
+                                console.log(`❌ Pas de données localStorage dans: ${key}`);
                             }
                         }
                     }
@@ -1848,15 +1935,14 @@
             async loadMessages() {
                 try {
                     if (window.firebaseDB) {
-                        const { ref, get } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js');
+                        const { ref, query, orderByChild, limitToLast, get } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js');
                         const messagesRef = ref(window.firebaseDB, 'vip_chat');
-                        const snapshot = await get(messagesRef);
+                        const recentMessagesQuery = query(messagesRef, orderByChild('timestamp'), limitToLast(20));
+                        const snapshot = await get(recentMessagesQuery);
                         
                         if (snapshot.exists()) {
                             const messages = Object.values(snapshot.val());
-                            const today = new Date().toISOString().split('T')[0];
-                            const todayMessages = messages.filter(msg => msg.date === today);
-                            this.displayMessages(todayMessages);
+                            this.displayMessages(messages);
                         }
                     }
                 } catch (error) {
@@ -1867,15 +1953,23 @@
             async setupRealtimeListener() {
                 try {
                     if (window.firebaseDB) {
-                        const { ref, onValue } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js');
+                        const { ref, query, orderByChild, limitToLast, onValue } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js');
                         const messagesRef = ref(window.firebaseDB, 'vip_chat');
+                        const recentMessagesQuery = query(messagesRef, orderByChild('timestamp'), limitToLast(20));
                         
-                        onValue(messagesRef, (snapshot) => {
+                        onValue(recentMessagesQuery, (snapshot) => {
                             if (snapshot.exists()) {
                                 const messages = Object.values(snapshot.val());
-                                const today = new Date().toISOString().split('T')[0];
-                                const todayMessages = messages.filter(msg => msg.date === today);
-                                this.displayMessages(todayMessages);
+                                this.displayMessages(messages);
+                                
+                                // Notification instantanée pour mobile
+                                const latestMessage = messages[messages.length - 1];
+                                if (latestMessage && latestMessage.userId !== this.currentUser) {
+                                    const timeDiff = Date.now() - latestMessage.timestamp;
+                                    if (timeDiff < 3000) { // Message de moins de 3 secondes
+                                        this.showInstantMobileNotification(latestMessage);
+                                    }
+                                }
                             }
                         });
                     }
@@ -1900,9 +1994,7 @@
                     if (!isChatOpen) {
                         this.updateBadge(newMessages.length);
                         this.playNotificationSound();
-                        this.showPushNotification(newMessages[newMessages.length - 1]);
                     } else {
-                        // Si le chat est ouvert, marquer comme lu automatiquement
                         this.markMessagesAsRead();
                     }
                 }
@@ -2353,42 +2445,23 @@
             }
         };
         
-        VIPChat.prototype.showPushNotification = function(message) {
-            const notificationsDisabled = localStorage.getItem('chatNotificationsDisabled') === 'true';
-            if (!this.pushEnabled || !('Notification' in window) || notificationsDisabled) return;
-            
+        VIPChat.prototype.showInstantMobileNotification = function(message) {
             const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
             const isBackground = document.hidden || document.visibilityState === 'hidden';
             const chatWindowOpen = document.getElementById('chatWindow').classList.contains('show');
             
-            // NOTIFICATION IMMÉDIATE - Toujours afficher si conditions remplies
-            const shouldNotify = (isMobile && (isBackground || !chatWindowOpen)) || (!isMobile && isBackground) || !chatWindowOpen;
-            
-            if (shouldNotify) {
+            // Notification immédiate pour mobile
+            if (isMobile || isBackground || !chatWindowOpen) {
                 const notificationBody = `${message.nickname}: ${message.message.substring(0, 50)}${message.message.length > 50 ? '...' : ''}`;
                 
-                // 1. Notification via Service Worker (priorité)
-                if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-                    navigator.serviceWorker.controller.postMessage({
-                        type: 'SHOW_NOTIFICATION',
-                        title: '💬 Nouveau message VIP',
-                        body: notificationBody,
-                        icon: '/Misterpips.jpg'
-                    });
-                }
-                
-                // 2. Notification directe (fallback immédiat)
-                try {
-                    const notification = new Notification('💬 Nouveau message VIP', {
+                // Notification directe instantanée
+                if ('Notification' in window && Notification.permission === 'granted') {
+                    const notification = new Notification('💬 Message VIP', {
                         body: notificationBody,
                         icon: '/Misterpips.jpg',
-                        badge: '/Misterpips.jpg',
-                        tag: 'vip-chat-' + Date.now(),
-                        requireInteraction: isMobile,
-                        silent: false,
-                        vibrate: (isMobile && !isIOS) ? [200, 100, 200] : undefined,
-                        timestamp: Date.now()
+                        tag: 'instant-chat-' + Date.now(),
+                        requireInteraction: true,
+                        vibrate: isMobile ? [200, 100, 200] : undefined
                     });
                     
                     notification.onclick = () => {
@@ -2398,17 +2471,14 @@
                         notification.close();
                     };
                     
-                    // Auto-fermer
                     setTimeout(() => {
                         try { notification.close(); } catch(e) {}
-                    }, isMobile ? 10000 : 6000);
-                } catch (error) {
-                    console.error('Erreur notification directe:', error);
+                    }, 8000);
                 }
+                
+                // Push notification pour app fermée
+                this.sendInstantPushNotification(message);
             }
-            
-            // 3. TOUJOURS envoyer push notification pour persistance
-            this.sendInstantPushNotification(message);
         };
         
         VIPChat.prototype.sendInstantPushNotification = async function(message) {

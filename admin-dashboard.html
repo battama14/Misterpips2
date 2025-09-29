@@ -10,7 +10,7 @@
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js';
         import { getAuth, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js';
-        import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js';
+        import { getDatabase, ref, set, get, remove, push } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js';
         
         const firebaseConfig = {
             apiKey: "AIzaSyDSDK0NfVSs_VQb3TnrixiJbOpTsmoUMvU",
@@ -23,29 +23,39 @@
         
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
-        const db = getFirestore(app);
+        const db = getDatabase(app);
         
         // Rendre tout disponible globalement
         window.firebaseDB = db;
         window.firebaseAuth = auth;
-        window.addDoc = addDoc;
-        window.collection = collection;
-        window.deleteDoc = deleteDoc;
-        window.doc = doc;
-        window.getDocs = getDocs;
-        window.onSnapshot = onSnapshot;
+        window.dbRef = ref;
+        window.dbSet = set;
+        window.dbGet = get;
+        window.dbRemove = remove;
+        window.dbPush = push;
+        
+        let authCheckComplete = false;
         
         onAuthStateChanged(auth, (user) => {
             console.log('Admin auth check:', user);
-            if (!user) {
-                console.log('No user, redirecting to VIP');
-                window.location.href = 'vip-space.html';
-            } else if (user.email !== 'admin@misterpips.com') {
-                console.log('Not admin user, redirecting to VIP');
-                window.location.href = 'vip-space.html';
-            } else {
-                console.log('Admin authenticated:', user.email);
-            }
+            
+            // Attendre un délai pour s'assurer que l'authentification est complète
+            setTimeout(() => {
+                if (!user) {
+                    console.log('No user, redirecting to VIP');
+                    alert('Connexion administrateur requise');
+                    window.location.href = 'vip-space.html';
+                } else if (user.email !== 'admin@misterpips.com') {
+                    console.log('Not admin user, redirecting to VIP');
+                    alert('Accès administrateur refusé pour: ' + user.email);
+                    window.location.href = 'vip-space.html';
+                } else {
+                    console.log('Admin authenticated:', user.email);
+                    document.body.style.visibility = 'visible';
+                    document.body.style.opacity = '1';
+                    authCheckComplete = true;
+                }
+            }, 1000);
         });
         
         window.adminLogout = () => {
@@ -55,7 +65,7 @@
         };
     </script>
 </head>
-<body>
+<body style="visibility: hidden; opacity: 0; transition: opacity 0.3s ease;">
     <div id="trading-chart"></div>
     
     <header>
@@ -84,6 +94,9 @@
             <div class="hero-content">
                 <h1>Tableau de Bord Administrateur</h1>
                 <p>Gestion complète du site Misterpips</p>
+                <div id="sync-indicator" class="sync-indicator">
+                    <i class="fas fa-sync-alt"></i> <span id="sync-status">Synchronisation active</span>
+                </div>
             </div>
         </section>
 
@@ -480,14 +493,17 @@
                 };
                 
                 try {
+                    updateSyncIndicator('syncing', 'Ajout de l\'avis...');
                     const db = window.firebaseDB;
                     const docRef = await window.addDoc(window.collection(db, 'testimonials'), newTestimonial);
                     testimonials.push({id: docRef.id, ...newTestimonial});
                     loadTestimonials();
                     document.getElementById('testimonial-form').reset();
+                    updateSyncIndicator('success', 'Avis ajouté et synchronisé');
                     alert('Avis ajouté avec succès !');
                 } catch (error) {
                     console.error('Erreur ajout avis:', error);
+                    updateSyncIndicator('error', 'Erreur ajout avis');
                     alert('Erreur lors de l\'ajout');
                 }
             }
@@ -570,6 +586,7 @@
             };
             
             try {
+                updateSyncIndicator('syncing', 'Publication de la news...');
                 const db = window.firebaseDB;
                 const collectionName = type === 'vip' ? 'vip_news' : 'public_news';
                 const docRef = await window.addDoc(window.collection(db, collectionName), newNews);
@@ -581,10 +598,12 @@
                 }
                 
                 document.getElementById('news-form').reset();
+                updateSyncIndicator('success', 'News publiée et synchronisée');
                 alert('News publiée avec succès !');
                 loadNews();
             } catch (error) {
                 console.error('Erreur publication news:', error);
+                updateSyncIndicator('error', 'Erreur publication news');
                 alert('Erreur lors de la publication');
             }
         });
@@ -613,6 +632,41 @@
         }
         
         window.deleteNews = deleteNews;
+        
+        // Fonction pour mettre à jour l'indicateur de synchronisation
+        function updateSyncIndicator(status, message) {
+            const indicator = document.getElementById('sync-indicator');
+            const statusText = document.getElementById('sync-status');
+            
+            if (!indicator || !statusText) return;
+            
+            indicator.className = 'sync-indicator';
+            
+            switch(status) {
+                case 'syncing':
+                    indicator.classList.add('syncing');
+                    statusText.textContent = message || 'Synchronisation en cours...';
+                    break;
+                case 'success':
+                    statusText.textContent = message || 'Synchronisation réussie';
+                    setTimeout(() => {
+                        statusText.textContent = 'Synchronisation active';
+                    }, 3000);
+                    break;
+                case 'error':
+                    indicator.classList.add('error');
+                    statusText.textContent = message || 'Erreur de synchronisation';
+                    setTimeout(() => {
+                        indicator.className = 'sync-indicator';
+                        statusText.textContent = 'Synchronisation active';
+                    }, 5000);
+                    break;
+                default:
+                    statusText.textContent = message || 'Synchronisation active';
+            }
+        }
+        
+        window.updateSyncIndicator = updateSyncIndicator;
 
         // Mettre à jour les statistiques
         function updateStats() {
@@ -672,16 +726,22 @@
                 heroTitle,
                 heroSubtitle,
                 aboutText,
-                timestamp: new Date().toISOString()
+                timestamp: new Date().toISOString(),
+                lastModified: new Date().toISOString()
             };
             
             try {
                 const db = window.firebaseDB;
-                await window.addDoc(window.collection(db, 'site_content'), content);
-                alert('Contenu sauvegardé avec succès !');
+                // Utiliser un document avec ID fixe pour le contenu principal
+                updateSyncIndicator('syncing', 'Sauvegarde du contenu...');
+                const contentRef = window.doc(db, 'site_content', 'main_content');
+                await window.setDoc(contentRef, content, { merge: true });
+                updateSyncIndicator('success', 'Contenu principal synchronisé');
+                alert('Contenu sauvegardé avec succès ! Les modifications sont visibles sur le site.');
+                console.log('✅ Contenu principal mis à jour');
             } catch (error) {
                 console.error('Erreur sauvegarde contenu:', error);
-                alert('Erreur lors de la sauvegarde');
+                alert('Erreur lors de la sauvegarde: ' + error.message);
             }
         });
 
@@ -689,16 +749,29 @@
         async function loadContent() {
             try {
                 const db = window.firebaseDB;
+                // Charger le document de contenu principal
+                const contentRef = window.doc(db, 'site_content', 'main_content');
                 const contentSnapshot = await window.getDocs(window.collection(db, 'site_content'));
                 
                 if (!contentSnapshot.empty) {
-                    // Prendre le dernier contenu sauvegardé
-                    const contents = contentSnapshot.docs.map(doc => doc.data());
-                    const latestContent = contents.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
+                    // Chercher le contenu principal ou prendre le plus récent
+                    let mainContent = null;
+                    contentSnapshot.docs.forEach(doc => {
+                        const data = doc.data();
+                        if (doc.id === 'main_content') {
+                            mainContent = data;
+                        } else if (!mainContent) {
+                            if (!mainContent || new Date(data.timestamp) > new Date(mainContent.timestamp)) {
+                                mainContent = data;
+                            }
+                        }
+                    });
                     
-                    document.getElementById('hero-title').value = latestContent.heroTitle || '';
-                    document.getElementById('hero-subtitle').value = latestContent.heroSubtitle || '';
-                    document.getElementById('about-text').value = latestContent.aboutText || '';
+                    if (mainContent) {
+                        document.getElementById('hero-title').value = mainContent.heroTitle || 'Bienvenue chez Misterpips';
+                        document.getElementById('hero-subtitle').value = mainContent.heroSubtitle || 'Votre partenaire pour maîtriser l\'art du trading';
+                        document.getElementById('about-text').value = mainContent.aboutText || '';
+                    }
                 }
             } catch (error) {
                 console.error('Erreur chargement contenu:', error);
@@ -752,43 +825,55 @@
         async function saveSectionData(data) {
             try {
                 const db = window.firebaseDB;
-                await window.addDoc(window.collection(db, 'page_sections'), data);
+                // Utiliser setDoc avec l'ID de la section pour éviter les doublons
+                const sectionRef = window.doc(db, 'page_sections', data.section);
+                await window.setDoc(sectionRef, data, { merge: true });
                 
                 document.getElementById('pages-form').reset();
-                alert('Section sauvegardée avec succès !');
+                updateSyncIndicator('success', `Section ${data.section} synchronisée`);
+                alert('Section sauvegardée avec succès ! Les modifications sont maintenant visibles sur le site.');
                 loadSectionData();
+                
+                // Forcer le rechargement des sections sur la page publique
+                console.log('✅ Section mise à jour:', data.section);
             } catch (error) {
                 console.error('Erreur sauvegarde section:', error);
-                alert('Erreur lors de la sauvegarde');
+                alert('Erreur lors de la sauvegarde: ' + error.message);
             }
         }
         
         async function loadSectionData() {
             try {
                 const db = window.firebaseDB;
-                const sectionsSnapshot = await window.getDocs(window.collection(db, 'page_sections'));
                 const select = document.getElementById('section-select');
                 const currentSection = select.value;
                 
-                if (!sectionsSnapshot.empty) {
-                    const sections = {};
-                    sectionsSnapshot.docs.forEach(doc => {
-                        const data = doc.data();
-                        if (!sections[data.section] || new Date(data.lastModified) > new Date(sections[data.section].lastModified)) {
-                            sections[data.section] = data;
+                // Charger la section spécifique
+                const sectionRef = window.doc(db, 'page_sections', currentSection);
+                const sectionDoc = await window.getDocs(window.collection(db, 'page_sections'));
+                
+                // Chercher la section dans tous les documents
+                let sectionData = null;
+                sectionDoc.docs.forEach(doc => {
+                    const data = doc.data();
+                    if (data.section === currentSection) {
+                        if (!sectionData || new Date(data.lastModified) > new Date(sectionData.lastModified)) {
+                            sectionData = data;
                         }
-                    });
-                    
-                    if (sections[currentSection]) {
-                        document.getElementById('section-title').value = sections[currentSection].title || '';
-                        document.getElementById('section-content').value = sections[currentSection].content || '';
-                        document.getElementById('section-image-url').value = sections[currentSection].mediaType === 'url' ? sections[currentSection].media || '' : '';
-                    } else {
-                        // Vider les champs si pas de données
-                        document.getElementById('section-title').value = '';
-                        document.getElementById('section-content').value = '';
-                        document.getElementById('section-image-url').value = '';
                     }
+                });
+                
+                if (sectionData) {
+                    document.getElementById('section-title').value = sectionData.title || '';
+                    document.getElementById('section-content').value = sectionData.content || '';
+                    document.getElementById('section-image-url').value = sectionData.mediaType === 'url' ? sectionData.media || '' : '';
+                    document.getElementById('show-construction').checked = sectionData.showConstruction !== false;
+                } else {
+                    // Vider les champs si pas de données
+                    document.getElementById('section-title').value = '';
+                    document.getElementById('section-content').value = '';
+                    document.getElementById('section-image-url').value = '';
+                    document.getElementById('show-construction').checked = true;
                 }
             } catch (error) {
                 console.error('Erreur chargement sections:', error);

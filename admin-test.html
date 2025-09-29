@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Admin - Misterpips</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #1a1a2e; color: white; }
+        .test-container { max-width: 600px; margin: 0 auto; }
+        .test-section { background: #16213e; padding: 20px; margin: 20px 0; border-radius: 10px; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .success { background: #4CAF50; }
+        .error { background: #f44336; }
+        .warning { background: #ff9800; }
+        button { background: #00d4ff; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin: 5px; }
+        button:hover { background: #0099cc; }
+        input { padding: 10px; margin: 5px; border: 1px solid #ccc; border-radius: 5px; width: 200px; }
+        .log { background: #000; color: #0f0; padding: 10px; border-radius: 5px; font-family: monospace; height: 200px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🔧 Test du Système Admin - Misterpips</h1>
+        
+        <div class="test-section">
+            <h2>📊 État du Système</h2>
+            <div id="firebase-status" class="status warning">🔄 Vérification Firebase...</div>
+            <div id="auth-status" class="status warning">🔄 Vérification Auth...</div>
+            <div id="admin-status" class="status warning">🔄 Vérification Admin...</div>
+        </div>
+        
+        <div class="test-section">
+            <h2>🔐 Test de Connexion Admin</h2>
+            <div>
+                <input type="email" id="test-email" placeholder="admin@misterpips.com" value="admin@misterpips.com">
+                <input type="password" id="test-password" placeholder="Mot de passe">
+            </div>
+            <div>
+                <button onclick="testAdminLogin()">🔑 Tester Connexion Admin</button>
+                <button onclick="checkCurrentUser()">👤 Vérifier Utilisateur Actuel</button>
+                <button onclick="testAdminAccess()">🚪 Tester Accès Admin Dashboard</button>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h2>📝 Journal des Tests</h2>
+            <div id="test-log" class="log"></div>
+            <button onclick="clearLog()">🗑️ Effacer Journal</button>
+        </div>
+        
+        <div class="test-section">
+            <h2>🔧 Actions de Diagnostic</h2>
+            <button onclick="clearAllStorage()">🧹 Nettoyer Storage</button>
+            <button onclick="showStorageInfo()">📋 Afficher Storage</button>
+            <button onclick="testFirebaseConnection()">🔥 Test Firebase</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js';
+        import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js';
+        
+        const firebaseConfig = {
+            apiKey: "AIzaSyDSDK0NfVSs_VQb3TnrixiJbOpTsmoUMvU",
+            authDomain: "misterpips-b71fb.firebaseapp.com",
+            projectId: "misterpips-b71fb",
+            storageBucket: "misterpips-b71fb.firebasestorage.app",
+            messagingSenderId: "574231126409",
+            appId: "1:574231126409:web:b7ed93ac4ea62e247dc158"
+        };
+        
+        let app, auth;
+        
+        try {
+            app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            window.firebaseAuth = { auth, signInWithEmailAndPassword, signOut };
+            
+            log('✅ Firebase initialisé avec succès');
+            updateStatus('firebase-status', '✅ Firebase connecté', 'success');
+            
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    log(`👤 Utilisateur connecté: ${user.email} (UID: ${user.uid})`);
+                    updateStatus('auth-status', `✅ Connecté: ${user.email}`, 'success');
+                    
+                    if (user.email === 'admin@misterpips.com') {
+                        updateStatus('admin-status', '✅ Admin authentifié', 'success');
+                    } else {
+                        updateStatus('admin-status', '⚠️ Pas un admin', 'warning');
+                    }
+                } else {
+                    log('👤 Aucun utilisateur connecté');
+                    updateStatus('auth-status', '❌ Non connecté', 'error');
+                    updateStatus('admin-status', '❌ Admin non authentifié', 'error');
+                }
+            });
+            
+        } catch (error) {
+            log('❌ Erreur Firebase: ' + error.message);
+            updateStatus('firebase-status', '❌ Erreur Firebase', 'error');
+        }
+        
+        function log(message) {
+            const logDiv = document.getElementById('test-log');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `[${timestamp}] ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(message);
+        }
+        
+        function updateStatus(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = `status ${type}`;
+        }
+        
+        window.testAdminLogin = async function() {
+            const email = document.getElementById('test-email').value;
+            const password = document.getElementById('test-password').value;
+            
+            if (!email || !password) {
+                log('❌ Email et mot de passe requis');
+                return;
+            }
+            
+            log(`🔄 Tentative de connexion: ${email}`);
+            
+            try {
+                const userCredential = await signInWithEmailAndPassword(auth, email, password);
+                log(`✅ Connexion réussie: ${userCredential.user.email}`);
+                
+                if (email === 'admin@misterpips.com') {
+                    log('✅ Admin vérifié - accès autorisé');
+                } else {
+                    log('⚠️ Utilisateur connecté mais pas admin');
+                }
+            } catch (error) {
+                log(`❌ Erreur connexion: ${error.code} - ${error.message}`);
+            }
+        };
+        
+        window.checkCurrentUser = function() {
+            const user = auth.currentUser;
+            if (user) {
+                log(`👤 Utilisateur actuel: ${user.email} (UID: ${user.uid})`);
+                log(`📧 Email vérifié: ${user.emailVerified}`);
+            } else {
+                log('👤 Aucun utilisateur connecté');
+            }
+        };
+        
+        window.testAdminAccess = function() {
+            log('🚪 Test d\'accès au dashboard admin...');
+            
+            const user = auth.currentUser;
+            if (!user) {
+                log('❌ Pas d\'utilisateur connecté');
+                return;
+            }
+            
+            if (user.email !== 'admin@misterpips.com') {
+                log('❌ Utilisateur pas admin');
+                return;
+            }
+            
+            log('✅ Accès admin autorisé - redirection possible');
+            
+            if (confirm('Rediriger vers le dashboard admin ?')) {
+                window.location.href = 'admin-dashboard.html';
+            }
+        };
+        
+        window.clearLog = function() {
+            document.getElementById('test-log').innerHTML = '';
+        };
+        
+        window.clearAllStorage = function() {
+            sessionStorage.clear();
+            localStorage.clear();
+            log('🧹 Storage nettoyé');
+        };
+        
+        window.showStorageInfo = function() {
+            log('📋 === STORAGE INFO ===');
+            log('SessionStorage:');
+            for (let i = 0; i < sessionStorage.length; i++) {
+                const key = sessionStorage.key(i);
+                log(`  ${key}: ${sessionStorage.getItem(key)}`);
+            }
+            log('LocalStorage:');
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                log(`  ${key}: ${localStorage.getItem(key)}`);
+            }
+        };
+        
+        window.testFirebaseConnection = function() {
+            log('🔥 Test de connexion Firebase...');
+            
+            if (window.firebaseAuth && window.firebaseAuth.auth) {
+                log('✅ Firebase Auth disponible');
+                log(`📊 État auth: ${auth.currentUser ? 'Connecté' : 'Déconnecté'}`);
+            } else {
+                log('❌ Firebase Auth non disponible');
+            }
+        };
+    </script>
+</body>
+</html>

@@ -526,7 +526,9 @@
                     item.className = 'testimonial-item';
                     item.innerHTML = `
                         <div class="testimonial-content">
-                            ${testimonial.image ? `<div class="testimonial-image"><img src="${testimonial.image}" alt="Avis client" style="width: 100%; height: auto; max-height: 200px; object-fit: contain; border-radius: 10px; margin-bottom: 15px; background: rgba(255,255,255,0.1);"></div>` : ''}
+                            <div class="testimonial-image">
+                                <img src="${testimonial.image}" alt="Avis client">
+                            </div>
                             <div class="testimonial-text">
                                 <p>"${testimonial.text}"</p>
                                 <div class="testimonial-author">- ${testimonial.author}</div>
@@ -564,13 +566,12 @@
                         const newsItem = document.createElement('div');
                         newsItem.className = 'news-item';
                         newsItem.innerHTML = `
-                            <h3 style="text-align: center; color: var(--primary-color); margin-bottom: 15px;">${item.title}</h3>
-                            ${item.image ? `<div class="news-image"><img src="${item.image}" alt="${item.title}" style="width: 100%; height: auto; max-height: 200px; object-fit: contain; border-radius: 10px; margin-bottom: 15px; background: rgba(255,255,255,0.1);"></div>` : ''}
-                            <div class="news-content" style="white-space: pre-line; text-align: left;">${item.content}</div>
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px;">
+                            <div class="news-header">
+                                <h3>${item.title}</h3>
                                 <span class="news-priority priority-${item.priority}">${item.priority.toUpperCase()}</span>
-                                <div class="news-date">${new Date(item.date).toLocaleDateString('fr-FR')}</div>
                             </div>
+                            <p class="news-content">${item.content}</p>
+                            <div class="news-date">${new Date(item.date).toLocaleDateString('fr-FR')}</div>
                         `;
                         grid.appendChild(newsItem);
                     });

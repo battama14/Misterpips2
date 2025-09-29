@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Synchronisation Firebase - Misterpips</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #1a1a2e; color: white; }
+        .test-container { max-width: 800px; margin: 0 auto; }
+        .test-section { background: #16213e; padding: 20px; margin: 20px 0; border-radius: 10px; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .success { background: #4CAF50; }
+        .error { background: #f44336; }
+        .warning { background: #ff9800; }
+        button { background: #00d4ff; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin: 5px; }
+        button:hover { background: #0099cc; }
+        input, textarea { padding: 10px; margin: 5px; border: 1px solid #ccc; border-radius: 5px; width: 300px; }
+        textarea { height: 100px; width: 500px; }
+        .log { background: #000; color: #0f0; padding: 10px; border-radius: 5px; font-family: monospace; height: 200px; overflow-y: auto; }
+        .data-display { background: #2a2a3e; padding: 15px; border-radius: 8px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🔄 Test de Synchronisation Firebase</h1>
+        
+        <div class="test-section">
+            <h2>📊 État de la Synchronisation</h2>
+            <div id="firebase-status" class="status warning">🔄 Vérification Firebase...</div>
+            <div id="sync-status" class="status warning">🔄 Test de synchronisation...</div>
+        </div>
+        
+        <div class="test-section">
+            <h2>✏️ Test d'Écriture (Admin)</h2>
+            <div>
+                <h3>Modifier une Section</h3>
+                <select id="section-select">
+                    <option value="presentation">Présentation</option>
+                    <option value="apprentissage">Apprentissage</option>
+                    <option value="exercices">Exercices</option>
+                    <option value="about">À propos</option>
+                </select><br>
+                <input type="text" id="section-title" placeholder="Titre de la section"><br>
+                <textarea id="section-content" placeholder="Contenu de la section..."></textarea><br>
+                <button onclick="testSectionUpdate()">💾 Sauvegarder Section</button>
+            </div>
+            
+            <div style="margin-top: 20px;">
+                <h3>Modifier le Contenu Principal</h3>
+                <input type="text" id="hero-title" placeholder="Titre principal" value="Test Titre Misterpips"><br>
+                <input type="text" id="hero-subtitle" placeholder="Sous-titre" value="Test sous-titre modifié"><br>
+                <button onclick="testContentUpdate()">💾 Sauvegarder Contenu</button>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h2>📖 Test de Lecture (Public)</h2>
+            <button onclick="testDataRead()">📥 Lire les Données</button>
+            <div id="data-display" class="data-display">
+                <p>Cliquez sur "Lire les Données" pour voir le contenu Firebase</p>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h2>📝 Journal des Tests</h2>
+            <div id="test-log" class="log"></div>
+            <button onclick="clearLog()">🗑️ Effacer Journal</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js';
+        import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, onSnapshot, updateDoc, setDoc, getDoc } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js';
+        
+        const firebaseConfig = {
+            apiKey: "AIzaSyDSDK0NfVSs_VQb3TnrixiJbOpTsmoUMvU",
+            authDomain: "misterpips-b71fb.firebaseapp.com",
+            projectId: "misterpips-b71fb",
+            storageBucket: "misterpips-b71fb.firebasestorage.app",
+            messagingSenderId: "574231126409",
+            appId: "1:574231126409:web:b7ed93ac4ea62e247dc158"
+        };
+        
+        let app, db;
+        
+        try {
+            app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            
+            log('✅ Firebase initialisé avec succès');
+            updateStatus('firebase-status', '✅ Firebase connecté', 'success');
+            
+            // Test de connexion
+            testConnection();
+            
+        } catch (error) {
+            log('❌ Erreur Firebase: ' + error.message);
+            updateStatus('firebase-status', '❌ Erreur Firebase', 'error');
+        }
+        
+        function log(message) {
+            const logDiv = document.getElementById('test-log');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `[${timestamp}] ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(message);
+        }
+        
+        function updateStatus(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = `status ${type}`;
+        }
+        
+        async function testConnection() {
+            try {
+                // Test de lecture simple
+                const testCollection = collection(db, 'test');
+                log('🔄 Test de connexion à Firestore...');
+                
+                updateStatus('sync-status', '✅ Synchronisation active', 'success');
+                log('✅ Connexion Firestore réussie');
+            } catch (error) {
+                updateStatus('sync-status', '❌ Erreur de synchronisation', 'error');
+                log('❌ Erreur connexion Firestore: ' + error.message);
+            }
+        }
+        
+        window.testSectionUpdate = async function() {
+            const section = document.getElementById('section-select').value;
+            const title = document.getElementById('section-title').value;
+            const content = document.getElementById('section-content').value;
+            
+            if (!title || !content) {
+                log('❌ Titre et contenu requis');
+                return;
+            }
+            
+            const sectionData = {
+                section: section,
+                title: title,
+                content: content,
+                showConstruction: false,
+                lastModified: new Date().toISOString(),
+                timestamp: Date.now()
+            };
+            
+            try {
+                log(`🔄 Sauvegarde de la section: ${section}`);
+                
+                const sectionRef = doc(db, 'page_sections', section);
+                await setDoc(sectionRef, sectionData, { merge: true });
+                
+                log(`✅ Section ${section} sauvegardée avec succès`);
+                log(`📝 Titre: ${title}`);
+                log(`📝 Contenu: ${content.substring(0, 50)}...`);
+                
+                // Vider les champs
+                document.getElementById('section-title').value = '';
+                document.getElementById('section-content').value = '';
+                
+            } catch (error) {
+                log(`❌ Erreur sauvegarde section: ${error.message}`);
+            }
+        };
+        
+        window.testContentUpdate = async function() {
+            const heroTitle = document.getElementById('hero-title').value;
+            const heroSubtitle = document.getElementById('hero-subtitle').value;
+            
+            if (!heroTitle || !heroSubtitle) {
+                log('❌ Titre et sous-titre requis');
+                return;
+            }
+            
+            const contentData = {
+                heroTitle: heroTitle,
+                heroSubtitle: heroSubtitle,
+                timestamp: new Date().toISOString(),
+                lastModified: new Date().toISOString()
+            };
+            
+            try {
+                log('🔄 Sauvegarde du contenu principal...');
+                
+                const contentRef = doc(db, 'site_content', 'main_content');
+                await setDoc(contentRef, contentData, { merge: true });
+                
+                log('✅ Contenu principal sauvegardé');
+                log(`📝 Titre: ${heroTitle}`);
+                log(`📝 Sous-titre: ${heroSubtitle}`);
+                
+            } catch (error) {
+                log(`❌ Erreur sauvegarde contenu: ${error.message}`);
+            }
+        };
+        
+        window.testDataRead = async function() {
+            try {
+                log('🔄 Lecture des données Firebase...');
+                
+                const displayDiv = document.getElementById('data-display');
+                let html = '<h3>📊 Données Firebase</h3>';
+                
+                // Lire le contenu principal
+                const mainContentRef = doc(db, 'site_content', 'main_content');
+                const mainContentDoc = await getDoc(mainContentRef);
+                
+                if (mainContentDoc.exists()) {
+                    const content = mainContentDoc.data();
+                    html += `
+                        <div style="border: 1px solid #00d4ff; padding: 10px; margin: 10px 0; border-radius: 5px;">
+                            <h4>🏠 Contenu Principal</h4>
+                            <p><strong>Titre:</strong> ${content.heroTitle || 'Non défini'}</p>
+                            <p><strong>Sous-titre:</strong> ${content.heroSubtitle || 'Non défini'}</p>
+                            <p><strong>Dernière modification:</strong> ${content.lastModified || 'Inconnue'}</p>
+                        </div>
+                    `;
+                    log('✅ Contenu principal lu');
+                } else {
+                    html += '<p>❌ Aucun contenu principal trouvé</p>';
+                    log('⚠️ Aucun contenu principal');
+                }
+                
+                // Lire les sections
+                const sectionsSnapshot = await getDocs(collection(db, 'page_sections'));
+                
+                if (!sectionsSnapshot.empty) {
+                    html += '<h4>📄 Sections Personnalisées</h4>';
+                    
+                    sectionsSnapshot.docs.forEach(docSnap => {
+                        const data = docSnap.data();
+                        html += `
+                            <div style="border: 1px solid #4CAF50; padding: 10px; margin: 10px 0; border-radius: 5px;">
+                                <h5>📝 ${data.section || docSnap.id}</h5>
+                                <p><strong>Titre:</strong> ${data.title || 'Non défini'}</p>
+                                <p><strong>Contenu:</strong> ${data.content ? data.content.substring(0, 100) + '...' : 'Vide'}</p>
+                                <p><strong>Dernière modification:</strong> ${data.lastModified || 'Inconnue'}</p>
+                            </div>
+                        `;
+                    });
+                    
+                    log(`✅ ${sectionsSnapshot.docs.length} sections lues`);
+                } else {
+                    html += '<p>❌ Aucune section personnalisée trouvée</p>';
+                    log('⚠️ Aucune section personnalisée');
+                }
+                
+                displayDiv.innerHTML = html;
+                log('✅ Lecture des données terminée');
+                
+            } catch (error) {
+                log(`❌ Erreur lecture données: ${error.message}`);
+                document.getElementById('data-display').innerHTML = `<p style="color: #f44336;">Erreur: ${error.message}</p>`;
+            }
+        };
+        
+        window.clearLog = function() {
+            document.getElementById('test-log').innerHTML = '';
+        };
+    </script>
+</body>
+</html>

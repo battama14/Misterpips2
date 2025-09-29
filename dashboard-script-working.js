@@ -301,6 +301,10 @@ class SimpleTradingDashboard {
                 
                 await set(userRef, dataToSave);
                 
+                // Synchroniser aussi les trades pour le classement
+                const tradesRef = ref(window.firebaseDB, `dashboards/${this.currentUser}/trades`);
+                await set(tradesRef, this.trades);
+                
                 const syncStatus = document.getElementById('syncStatus');
                 if (syncStatus) {
                     syncStatus.textContent = '✅ Firebase OK';
@@ -311,7 +315,7 @@ class SimpleTradingDashboard {
                     }, 2000);
                 }
                 
-                console.log('Sauvegarde Firebase réussie');
+                console.log('✅ Sauvegarde Firebase réussie + trades synchronisés');
                 return;
                 
             } catch (error) {
@@ -859,7 +863,9 @@ class SimpleTradingDashboard {
                 dayElement.classList.add('other-month');
             }
             
-            const dateStr = currentDate.toISOString().split('T')[0];
+            const dateStr = currentDate.getFullYear() + '-' + 
+                String(currentDate.getMonth() + 1).padStart(2, '0') + '-' + 
+                String(currentDate.getDate()).padStart(2, '0');
             const dayTrades = this.trades.filter(t => t.date === dateStr);
             const dayPnL = dayTrades.reduce((sum, t) => sum + parseFloat(t.pnl || 0), 0);
             
@@ -907,20 +913,21 @@ class SimpleTradingDashboard {
         const monthlyTarget = (currentCapital * this.settings.monthlyTarget / 100);
         const yearlyTarget = (currentCapital * this.settings.yearlyTarget / 100);
         
-        // Stats du jour actuel
-        const todayStr = today.toISOString().split('T')[0];
+        // Stats du jour actuel (format local pour éviter les décalages UTC)
+        const todayStr = today.getFullYear() + '-' + 
+            String(today.getMonth() + 1).padStart(2, '0') + '-' + 
+            String(today.getDate()).padStart(2, '0');
         const todayTrades = this.trades.filter(t => t.date === todayStr && t.status === 'closed');
         const todayPnL = todayTrades.reduce((sum, t) => sum + parseFloat(t.pnl || 0), 0);
         
-        // Stats de la semaine courante (lundi à dimanche)
+        // Stats de la semaine courante (lundi à dimanche) - remise à zéro chaque lundi
         const weekStart = new Date(today);
         const dayOfWeek = today.getDay();
-        const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Si dimanche (0), alors 6 jours en arrière
+        const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
         weekStart.setDate(today.getDate() - daysToMonday);
         weekStart.setHours(0, 0, 0, 0);
         
-        const weekEnd = new Date(weekStart);
-        weekEnd.setDate(weekStart.getDate() + 6);
+        const weekEnd = new Date(today);
         weekEnd.setHours(23, 59, 59, 999);
         
         const weekTrades = this.trades.filter(t => {
@@ -929,16 +936,18 @@ class SimpleTradingDashboard {
         });
         const weekPnL = weekTrades.reduce((sum, t) => sum + parseFloat(t.pnl || 0), 0);
         
-        // Stats du mois courant
+        // Stats du mois courant - remise à zéro le 1er de chaque mois
         const currentMonth = today.getMonth();
         const currentYear = today.getFullYear();
         const monthTrades = this.trades.filter(t => {
             const tradeDate = new Date(t.date + 'T00:00:00');
-            return tradeDate.getFullYear() === currentYear && tradeDate.getMonth() === currentMonth && t.status === 'closed';
+            return tradeDate.getFullYear() === currentYear && 
+                   tradeDate.getMonth() === currentMonth && 
+                   t.status === 'closed';
         });
         const monthPnL = monthTrades.reduce((sum, t) => sum + parseFloat(t.pnl || 0), 0);
         
-        // Stats de l'année courante
+        // Stats de l'année courante - remise à zéro le 1er janvier
         const yearTrades = this.trades.filter(t => {
             const tradeDate = new Date(t.date + 'T00:00:00');
             return tradeDate.getFullYear() === currentYear && t.status === 'closed';

@@ -276,12 +276,25 @@
         
         // Gestion du bouton d'accès admin
         document.getElementById('admin-access-btn').addEventListener('click', () => {
+            // Vérifier si déjà connecté en tant qu'admin
+            const adminAuth = sessionStorage.getItem('adminAuthenticated');
+            if (adminAuth === 'true') {
+                if (confirm('Vous êtes déjà connecté en tant qu\'admin. Aller au dashboard ?')) {
+                    window.location.href = 'admin-dashboard-fixed.html';
+                }
+                return;
+            }
+            
+            // Réinitialiser le formulaire
+            document.getElementById('admin-login-form').reset();
             document.getElementById('adminLoginModal').style.display = 'block';
         });
         
         // Fermer la modal admin
         document.querySelector('.admin-modal-close').addEventListener('click', () => {
             document.getElementById('adminLoginModal').style.display = 'none';
+            // Réinitialiser le formulaire
+            document.getElementById('admin-login-form').reset();
         });
         
         // Fermer la modal en cliquant à l'extérieur
@@ -301,6 +314,11 @@
             
             const email = document.getElementById('admin-email').value;
             const password = document.getElementById('admin-password').value;
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            
+            // Désactiver le bouton pendant la connexion
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Connexion...';
             
             console.log('Tentative connexion admin:', email);
             
@@ -311,14 +329,39 @@
                 // Vérifier si c'est un admin
                 if (email === 'admin@misterpips.com') {
                     console.log('Admin vérifié, redirection...');
-                    window.location.href = 'admin-dashboard.html';
+                    
+                    // Sauvegarder l'état admin
+                    sessionStorage.setItem('adminAuthenticated', 'true');
+                    sessionStorage.setItem('adminEmail', email);
+                    
+                    // Fermer la modal
+                    document.getElementById('adminLoginModal').style.display = 'none';
+                    
+                    // Redirection avec délai
+                    setTimeout(() => {
+                        window.location.href = 'admin-dashboard-fixed.html';
+                    }, 500);
                 } else {
                     console.log('Pas un admin:', email);
-                    alert('Accès administrateur refusé');
+                    alert('Accès administrateur refusé pour: ' + email);
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Se connecter';
                 }
             } catch (error) {
                 console.error('Erreur connexion admin:', error);
-                alert('Identifiants incorrects: ' + error.message);
+                let errorMessage = 'Identifiants incorrects';
+                
+                if (error.code === 'auth/user-not-found') {
+                    errorMessage = 'Utilisateur non trouvé';
+                } else if (error.code === 'auth/wrong-password') {
+                    errorMessage = 'Mot de passe incorrect';
+                } else if (error.code === 'auth/invalid-email') {
+                    errorMessage = 'Email invalide';
+                }
+                
+                alert(errorMessage);
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Se connecter';
             }
         });
     </script>
@@ -366,34 +409,65 @@
             loadNewsVIP();
         });
         
-        // Charger les news VIP
-        function loadNewsVIP() {
-            const news = JSON.parse(localStorage.getItem('misterpips_news')) || [];
-            const grid = document.getElementById('news-vip-grid');
-            
-            if (!grid) return;
-            
-            grid.innerHTML = '';
-            
-            if (news.length === 0) {
-                grid.innerHTML = '<p class="no-news">Aucune actualité VIP pour le moment</p>';
-                return;
+        // Charger les news VIP depuis Firebase
+        async function loadNewsVIP() {
+            try {
+                const { getDatabase, ref, get } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js');
+                const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js');
+                
+                const firebaseConfig = {
+                    apiKey: "AIzaSyDSDK0NfVSs_VQb3TnrixiJbOpTsmoUMvU",
+                    authDomain: "misterpips-b71fb.firebaseapp.com",
+                    databaseURL: "https://misterpips-b71fb-default-rtdb.europe-west1.firebasedatabase.app",
+                    projectId: "misterpips-b71fb",
+                    storageBucket: "misterpips-b71fb.firebasestorage.app",
+                    messagingSenderId: "574231126409",
+                    appId: "1:574231126409:web:b7ed93ac4ea62e247dc158"
+                };
+                
+                const app = initializeApp(firebaseConfig, 'vip-news-app');
+                const database = getDatabase(app);
+                
+                const vipNewsRef = ref(database, 'vip_news');
+                const snapshot = await get(vipNewsRef);
+                
+                const grid = document.getElementById('news-vip-grid');
+                if (!grid) return;
+                
+                grid.innerHTML = '';
+                
+                if (!snapshot.exists()) {
+                    grid.innerHTML = '<p class="no-news">Aucune actualité VIP pour le moment</p>';
+                    return;
+                }
+                
+                const newsData = snapshot.val();
+                const news = Object.keys(newsData).map(key => ({id: key, ...newsData[key]}));
+                
+                news.sort((a, b) => new Date(b.date) - new Date(a.date))
+                    .forEach(item => {
+                        const newsItem = document.createElement('div');
+                        newsItem.className = 'news-item';
+                        newsItem.innerHTML = `
+                            <h3 style="text-align: center; color: var(--primary-color); margin-bottom: 15px;">${item.title}</h3>
+                            ${item.image ? `<div class="news-image"><img src="${item.image}" alt="${item.title}" style="width: 100%; height: auto; max-height: 200px; object-fit: contain; border-radius: 10px; margin-bottom: 15px; background: rgba(255,255,255,0.1);"></div>` : ''}
+                            <div class="news-content" style="white-space: pre-line; text-align: left;">${item.content}</div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px;">
+                                <span class="news-priority priority-${item.priority}">${item.priority.toUpperCase()}</span>
+                                <div class="news-date">${new Date(item.date).toLocaleDateString('fr-FR')}</div>
+                            </div>
+                        `;
+                        grid.appendChild(newsItem);
+                    });
+                    
+                console.log('✅ News VIP chargées:', news.length);
+            } catch (error) {
+                console.error('Erreur chargement news VIP:', error);
+                const grid = document.getElementById('news-vip-grid');
+                if (grid) {
+                    grid.innerHTML = '<p class="error-message">Erreur de chargement des actualités VIP</p>';
+                }
             }
-            
-            // Afficher toutes les news pour les VIP
-            news.slice().reverse().forEach(item => {
-                const newsItem = document.createElement('div');
-                newsItem.className = 'news-item';
-                newsItem.innerHTML = `
-                    <div class="news-header">
-                        <h3>${item.title}</h3>
-                        <span class="news-priority priority-${item.priority}">${item.priority.toUpperCase()}</span>
-                    </div>
-                    <p class="news-content">${item.content}</p>
-                    <div class="news-date">${new Date(item.date).toLocaleDateString('fr-FR')}</div>
-                `;
-                grid.appendChild(newsItem);
-            });
         }
         
         function openPlanningForex() {
@@ -412,5 +486,7 @@
             window.open('planning-forex.html', '_blank');
         }
     </script>
+    
+
 </body>
 </html>

@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tableau de Bord Admin - Misterpips</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="vip-styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js';
+        import { getAuth, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js';
+        import { getDatabase, ref, set, get, remove, push } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js';
+        import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-storage.js';
+        
+        const firebaseConfig = {
+            apiKey: "AIzaSyDSDK0NfVSs_VQb3TnrixiJbOpTsmoUMvU",
+            authDomain: "misterpips-b71fb.firebaseapp.com",
+            databaseURL: "https://misterpips-b71fb-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "misterpips-b71fb",
+            storageBucket: "misterpips-b71fb.firebasestorage.app",
+            messagingSenderId: "574231126409",
+            appId: "1:574231126409:web:b7ed93ac4ea62e247dc158"
+        };
+        
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getDatabase(app);
+        const storage = getStorage(app);
+        
+        window.firebaseDB = db;
+        window.firebaseAuth = auth;
+        window.firebaseStorage = storage;
+        window.dbRef = ref;
+        window.dbSet = set;
+        window.dbGet = get;
+        window.dbRemove = remove;
+        window.dbPush = push;
+        window.storageRef = storageRef;
+        window.uploadBytes = uploadBytes;
+        window.getDownloadURL = getDownloadURL;
+        
+        onAuthStateChanged(auth, (user) => {
+            setTimeout(() => {
+                if (!user || user.email !== 'admin@misterpips.com') {
+                    alert('Accès administrateur requis');
+                    window.location.href = 'vip-space.html';
+                } else {
+                    document.body.style.visibility = 'visible';
+                    document.body.style.opacity = '1';
+                }
+            }, 1000);
+        });
+        
+        window.adminLogout = () => {
+            signOut(auth).then(() => window.location.href = 'index.html');
+        };
+    </script>
+</head>
+<body style="visibility: hidden; opacity: 0;">
+    <div id="trading-chart"></div>
+    
+    <header>
+        <div class="logo-container">
+            <img src="Misterpips.jpg" alt="Misterpips Logo" class="logo">
+        </div>
+        <nav>
+            <ul class="nav-links">
+                <li><a href="#dashboard">Dashboard</a></li>
+                <li><a href="#testimonials">Avis</a></li>
+                <li><a href="#content">Contenu</a></li>
+                <li><a href="#news">News</a></li>
+                <li><a href="vip-space.html">Retour VIP</a></li>
+                <li><a href="#" onclick="adminLogout()" class="logout-link">Déconnexion</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <section id="hero">
+            <div class="hero-content">
+                <h1>Tableau de Bord Administrateur</h1>
+                <p>Gestion complète du site Misterpips</p>
+                <div id="sync-indicator" class="sync-indicator">
+                    <i class="fas fa-sync-alt"></i> <span id="sync-status">Synchronisation active</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section Gestion des Avis -->
+        <section id="testimonials" class="section">
+            <div class="container">
+                <h2>Gestion des Avis Clients</h2>
+                <div class="admin-panel">
+                    <div class="admin-card">
+                        <div class="admin-card-header">
+                            <h3><i class="fas fa-comments"></i> Ajouter un Nouvel Avis</h3>
+                        </div>
+                        <div class="admin-card-body">
+                            <form id="testimonial-form" class="admin-form">
+                                <div class="form-group">
+                                    <label for="testimonial-text">Texte de l'avis</label>
+                                    <textarea id="testimonial-text" placeholder="Excellent service !" required></textarea>
+                                </div>
+                                <div class="form-group">
+                                    <label for="testimonial-author">Nom du client</label>
+                                    <input type="text" id="testimonial-author" placeholder="Client VIP" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="testimonial-image-url">Image URL</label>
+                                    <input type="url" id="testimonial-image-url" placeholder="https://exemple.com/image.jpg">
+                                </div>
+                                <div class="form-group">
+                                    <label for="testimonial-image-file">Ou télécharger une image</label>
+                                    <input type="file" id="testimonial-image-file" accept="image/*">
+                                    <button type="button" onclick="uploadTestimonialImage()" class="upload-btn">
+                                        <i class="fas fa-upload"></i> Télécharger Image
+                                    </button>
+                                </div>
+                                <div class="form-group">
+                                    <label>Prévisualisation</label>
+                                    <div id="testimonial-preview" class="testimonial-preview-container">
+                                        <div class="testimonial-item-preview">
+                                            <div id="testimonial-preview-image"></div>
+                                            <p id="testimonial-preview-text">"Texte de l'avis..."</p>
+                                            <strong id="testimonial-preview-author">- Nom du client</strong>
+                                        </div>
+                                    </div>
+                                </div>
+                                <button type="submit" class="admin-button">
+                                    <i class="fas fa-plus"></i> Ajouter l'Avis
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    
+                    <div class="admin-card">
+                        <div class="admin-card-header">
+                            <h3><i class="fas fa-list"></i> Avis Existants</h3>
+                        </div>
+                        <div class="admin-card-body">
+                            <div id="testimonials-list" class="testimonials-admin-list">
+                                <!-- Les avis seront chargés ici -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section Gestion des Pages -->
+        <section id="pages" class="section">
+            <div class="container">
+                <h2>Gestion des Pages</h2>
+                <div class="admin-panel">
+                    <div class="admin-card">
+                        <div class="admin-card-header">
+                            <h3><i class="fas fa-file-alt"></i> Modifier les Sections</h3>
+                        </div>
+                        <div class="admin-card-body">
+                            <form id="pages-form" class="admin-form">
+                                <div class="form-group">
+                                    <label for="section-select">Choisir une section</label>
+                                    <select id="section-select">
+                                        <option value="presentation">Présentation</option>
+                                        <option value="apprentissage">Apprentissage</option>
+                                        <option value="exercices">Exercices</option>
+                                        <option value="about">À propos de nous</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="section-title">Titre de la section</label>
+                                    <input type="text" id="section-title" placeholder="Titre de la section">
+                                </div>
+                                <div class="form-group">
+                                    <label for="section-content">Contenu</label>
+                                    <textarea id="section-content" placeholder="Contenu de la section..."></textarea>
+                                </div>
+                                <div class="form-group">
+                                    <label for="section-image-url">Image URL</label>
+                                    <input type="url" id="section-image-url" placeholder="https://exemple.com/image.jpg">
+                                </div>
+                                <div class="form-group">
+                                    <label for="section-image-file">Ou télécharger une image</label>
+                                    <input type="file" id="section-image-file" accept="image/*">
+                                    <button type="button" onclick="uploadSectionImage()" class="upload-btn">
+                                        <i class="fas fa-upload"></i> Télécharger Image
+                                    </button>
+                                </div>
+                                <button type="submit" class="admin-button">
+                                    <i class="fas fa-save"></i> Sauvegarder la Section
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section Gestion du Contenu -->
+        <section id="content" class="section">
+            <div class="container">
+                <h2>Gestion du Contenu</h2>
+                <div class="admin-panel">
+                    <div class="admin-card">
+                        <div class="admin-card-header">
+                            <h3><i class="fas fa-edit"></i> Modifier les Textes</h3>
+                        </div>
+                        <div class="admin-card-body">
+                            <form id="content-form" class="admin-form">
+                                <div class="form-group">
+                                    <label for="hero-title">Titre Principal</label>
+                                    <input type="text" id="hero-title" value="Bienvenue chez Misterpips">
+                                </div>
+                                <div class="form-group">
+                                    <label for="hero-subtitle">Sous-titre</label>
+                                    <input type="text" id="hero-subtitle" value="Votre partenaire pour maîtriser l'art du trading">
+                                </div>
+                                <button type="submit" class="admin-button">
+                                    <i class="fas fa-save"></i> Sauvegarder les Modifications
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section Gestion des News -->
+        <section id="news" class="section">
+            <div class="container">
+                <h2>Gestion des Actualités</h2>
+                <div class="admin-panel">
+                    <div class="admin-card">
+                        <div class="admin-card-header">
+                            <h3><i class="fas fa-newspaper"></i> Ajouter une News</h3>
+                        </div>
+                        <div class="admin-card-body">
+                            <form id="news-form" class="admin-form">
+                                <div class="form-group">
+                                    <label for="news-title">Titre de la News</label>
+                                    <input type="text" id="news-title" placeholder="Nouvelle analyse EUR/USD" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="news-content">Contenu</label>
+                                    <textarea id="news-content" placeholder="Détails de l'actualité..." required></textarea>
+                                </div>
+                                <div class="form-group">
+                                    <label for="news-priority">Priorité</label>
+                                    <select id="news-priority">
+                                        <option value="low">Faible</option>
+                                        <option value="medium">Moyenne</option>
+                                        <option value="high">Élevée</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="news-image-url">Image URL</label>
+                                    <input type="url" id="news-image-url" placeholder="https://exemple.com/image.jpg">
+                                </div>
+                                <div class="form-group">
+                                    <label for="news-image-file">Ou télécharger une image</label>
+                                    <input type="file" id="news-image-file" accept="image/*">
+                                    <button type="button" onclick="uploadNewsImage()" class="upload-btn">
+                                        <i class="fas fa-upload"></i> Télécharger Image
+                                    </button>
+                                </div>
+                                <div class="form-group">
+                                    <label for="news-type">Type de news</label>
+                                    <select id="news-type">
+                                        <option value="public">Page Principale</option>
+                                        <option value="vip">Espace VIP</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Prévisualisation</label>
+                                    <div id="news-preview" class="news-preview-container">
+                                        <div class="news-item-preview">
+                                            <h3 id="preview-title">Titre de la news...</h3>
+                                            <div id="preview-image"></div>
+                                            <p id="preview-content">Contenu de la news...</p>
+                                            <span id="preview-priority" class="news-priority priority-medium">MEDIUM</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <button type="submit" class="admin-button">
+                                    <i class="fas fa-plus"></i> Publier la News
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    
+                    <div class="admin-card">
+                        <div class="admin-card-header">
+                            <h3><i class="fas fa-list"></i> News Publiées</h3>
+                        </div>
+                        <div class="admin-card-body">
+                            <div id="news-list" class="news-admin-list">
+                                <!-- Les news seront chargées ici -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section Statistiques -->
+        <section id="dashboard" class="section">
+            <div class="container">
+                <h2>Statistiques du Site</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3>Utilisateurs VIP</h3>
+                            <div class="stat-number" id="vip-users">0</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-comments"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3>Avis Clients</h3>
+                            <div class="stat-number" id="total-testimonials">0</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-newspaper"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3>News Publiques</h3>
+                            <div class="stat-number" id="public-news">0</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-crown"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3>News VIP</h3>
+                            <div class="stat-number" id="vip-news">0</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="footer-content">
+            <div class="footer-logo">
+                <img src="Misterpips.jpg" alt="Misterpips Logo" class="footer-logo-img">
+                <p>Misterpips - Administration</p>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2025 Misterpips - Tableau de Bord Administrateur</p>
+        </div>
+    </footer>
+
+    <script>
+        let testimonials = [];
+        let news = [];
+        let vipNews = [];
+        
+        function updateSyncIndicator(status, message) {
+            const indicator = document.getElementById('sync-indicator');
+            const statusText = document.getElementById('sync-status');
+            
+            indicator.className = 'sync-indicator';
+            if (status === 'syncing') indicator.classList.add('syncing');
+            if (status === 'error') indicator.classList.add('error');
+            
+            statusText.textContent = message;
+            
+            if (status === 'success') {
+                setTimeout(() => statusText.textContent = 'Synchronisation active', 3000);
+            }
+        }
+
+        // Upload d'images simple avec base64
+        async function uploadTestimonialImage() {
+            const fileInput = document.getElementById('testimonial-image-file');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('Veuillez sélectionner une image');
+                return;
+            }
+            
+            updateSyncIndicator('syncing', 'Traitement image...');
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('testimonial-image-url').value = e.target.result;
+                updateSyncIndicator('success', 'Image prête !');
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        async function uploadSectionImage() {
+            const fileInput = document.getElementById('section-image-file');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('Veuillez sélectionner une image');
+                return;
+            }
+            
+            updateSyncIndicator('syncing', 'Traitement image...');
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('section-image-url').value = e.target.result;
+                updateSyncIndicator('success', 'Image prête !');
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        async function uploadNewsImage() {
+            const fileInput = document.getElementById('news-image-file');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('Veuillez sélectionner une image');
+                return;
+            }
+            
+            updateSyncIndicator('syncing', 'Traitement image...');
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('news-image-url').value = e.target.result;
+                updateSyncIndicator('success', 'Image prête !');
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        // Rendre les fonctions accessibles globalement
+        window.uploadTestimonialImage = uploadTestimonialImage;
+        window.uploadSectionImage = uploadSectionImage;
+        window.uploadNewsImage = uploadNewsImage;
+
+        // Gestion des avis
+        document.getElementById('testimonial-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const text = document.getElementById('testimonial-text').value;
+            const author = document.getElementById('testimonial-author').value;
+            const imageUrl = document.getElementById('testimonial-image-url').value;
+            
+            const newTestimonial = {
+                text,
+                author,
+                image: imageUrl || "https://via.placeholder.com/300x200/1a1a2e/00d4ff?text=Avis+Client",
+                timestamp: new Date().toISOString()
+            };
+            
+            try {
+                updateSyncIndicator('syncing', 'Ajout avis...');
+                const newRef = window.dbPush(window.dbRef(window.firebaseDB, 'testimonials'), newTestimonial);
+                testimonials.push({id: newRef.key, ...newTestimonial});
+                loadTestimonials();
+                document.getElementById('testimonial-form').reset();
+                updateSyncIndicator('success', 'Avis ajouté !');
+            } catch (error) {
+                updateSyncIndicator('error', 'Erreur avis');
+                alert('Erreur: ' + error.message);
+            }
+        });
+
+        // Gestion du contenu
+        document.getElementById('content-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const heroTitle = document.getElementById('hero-title').value;
+            const heroSubtitle = document.getElementById('hero-subtitle').value;
+            
+            const content = {
+                heroTitle,
+                heroSubtitle,
+                timestamp: new Date().toISOString()
+            };
+            
+            try {
+                updateSyncIndicator('syncing', 'Sauvegarde contenu...');
+                await window.dbSet(window.dbRef(window.firebaseDB, 'site_content/main_content'), content);
+                updateSyncIndicator('success', 'Contenu sauvegardé !');
+            } catch (error) {
+                updateSyncIndicator('error', 'Erreur contenu');
+                alert('Erreur: ' + error.message);
+            }
+        });
+
+        // Gestion des sections
+        document.getElementById('pages-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const section = document.getElementById('section-select').value;
+            const title = document.getElementById('section-title').value;
+            const content = document.getElementById('section-content').value;
+            const imageUrl = document.getElementById('section-image-url').value;
+            
+            const sectionData = {
+                section,
+                title,
+                content,
+                media: imageUrl,
+                mediaType: 'url',
+                showConstruction: false,
+                lastModified: new Date().toISOString()
+            };
+            
+            try {
+                updateSyncIndicator('syncing', 'Sauvegarde section...');
+                await window.dbSet(window.dbRef(window.firebaseDB, `page_sections/${section}`), sectionData);
+                updateSyncIndicator('success', 'Section sauvegardée !');
+                document.getElementById('pages-form').reset();
+            } catch (error) {
+                updateSyncIndicator('error', 'Erreur section');
+                alert('Erreur: ' + error.message);
+            }
+        });
+
+        // Gestion des news
+        document.getElementById('news-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const title = document.getElementById('news-title').value;
+            const content = document.getElementById('news-content').value;
+            const priority = document.getElementById('news-priority').value;
+            const type = document.getElementById('news-type').value;
+            const imageUrl = document.getElementById('news-image-url').value;
+            
+            const newNews = {
+                title,
+                content,
+                priority,
+                image: imageUrl,
+                date: new Date().toISOString(),
+                timestamp: new Date().toISOString()
+            };
+            
+            try {
+                updateSyncIndicator('syncing', 'Publication news...');
+                const collectionName = type === 'vip' ? 'vip_news' : 'public_news';
+                const newRef = window.dbPush(window.dbRef(window.firebaseDB, collectionName), newNews);
+                
+                if (type === 'vip') {
+                    vipNews.push({id: newRef.key, ...newNews});
+                } else {
+                    news.push({id: newRef.key, ...newNews});
+                }
+                
+                document.getElementById('news-form').reset();
+                updateSyncIndicator('success', 'News publiée !');
+                loadNews();
+            } catch (error) {
+                updateSyncIndicator('error', 'Erreur news');
+                alert('Erreur: ' + error.message);
+            }
+        });
+
+        // Charger les données
+        async function loadTestimonials() {
+            try {
+                const testimonialsRef = window.dbRef(window.firebaseDB, 'testimonials');
+                const snapshot = await window.dbGet(testimonialsRef);
+                
+                if (snapshot.exists()) {
+                    const data = snapshot.val();
+                    testimonials = Object.keys(data).map(key => ({id: key, ...data[key]}));
+                } else {
+                    testimonials = [];
+                }
+                
+                const list = document.getElementById('testimonials-list');
+                list.innerHTML = '';
+                
+                testimonials.forEach(testimonial => {
+                    const item = document.createElement('div');
+                    item.className = 'testimonial-admin-item';
+                    item.innerHTML = `
+                        <div class="testimonial-preview">
+                            ${testimonial.image ? `<img src="${testimonial.image}" alt="Image avis" class="testimonial-thumb">` : ''}
+                            <div class="testimonial-info">
+                                <p>"${testimonial.text}"</p>
+                                <strong>- ${testimonial.author}</strong>
+                            </div>
+                        </div>
+                        <div class="testimonial-actions">
+                            <button onclick="deleteTestimonial('${testimonial.id}')" class="delete-btn">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    `;
+                    list.appendChild(item);
+                });
+                
+                document.getElementById('total-testimonials').textContent = testimonials.length;
+            } catch (error) {
+                console.error('Erreur chargement avis:', error);
+            }
+        }
+
+        async function loadNews() {
+            try {
+                const publicNewsRef = window.dbRef(window.firebaseDB, 'public_news');
+                const vipNewsRef = window.dbRef(window.firebaseDB, 'vip_news');
+                
+                const publicSnapshot = await window.dbGet(publicNewsRef);
+                const vipSnapshot = await window.dbGet(vipNewsRef);
+                
+                news = publicSnapshot.exists() ? Object.keys(publicSnapshot.val()).map(key => ({id: key, ...publicSnapshot.val()[key]})) : [];
+                vipNews = vipSnapshot.exists() ? Object.keys(vipSnapshot.val()).map(key => ({id: key, ...vipSnapshot.val()[key]})) : [];
+                
+                const list = document.getElementById('news-list');
+                list.innerHTML = '';
+                
+                const allNews = [
+                    ...news.map(n => ({...n, type: 'public'})),
+                    ...vipNews.map(n => ({...n, type: 'vip'}))
+                ].sort((a, b) => new Date(b.date) - new Date(a.date));
+                
+                allNews.forEach(item => {
+                    const newsItem = document.createElement('div');
+                    newsItem.className = 'news-admin-item';
+                    newsItem.innerHTML = `
+                        <div class="news-preview">
+                            ${item.image ? `<img src="${item.image}" alt="Image news" class="news-thumb">` : ''}
+                            <div class="news-content">
+                                <h4>${item.title}</h4>
+                                <p>${item.content.substring(0, 100)}...</p>
+                                <span class="news-priority priority-${item.priority}">${item.priority.toUpperCase()}</span>
+                                <span class="news-type-badge ${item.type}">${item.type.toUpperCase()}</span>
+                            </div>
+                        </div>
+                        <div class="news-actions">
+                            <button onclick="deleteNews('${item.id}', '${item.type}')" class="delete-btn">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    `;
+                    list.appendChild(newsItem);
+                });
+                
+                document.getElementById('public-news').textContent = news.length;
+                document.getElementById('vip-news').textContent = vipNews.length;
+            } catch (error) {
+                console.error('Erreur chargement news:', error);
+            }
+        }
+
+        // Fonctions de suppression
+        window.deleteTestimonial = async function(id) {
+            if (confirm('Supprimer cet avis ?')) {
+                try {
+                    await window.dbRemove(window.dbRef(window.firebaseDB, `testimonials/${id}`));
+                    loadTestimonials();
+                } catch (error) {
+                    alert('Erreur suppression: ' + error.message);
+                }
+            }
+        };
+
+        window.deleteNews = async function(id, type) {
+            if (confirm('Supprimer cette news ?')) {
+                try {
+                    const collectionName = type === 'vip' ? 'vip_news' : 'public_news';
+                    await window.dbRemove(window.dbRef(window.firebaseDB, `${collectionName}/${id}`));
+                    loadNews();
+                } catch (error) {
+                    alert('Erreur suppression: ' + error.message);
+                }
+            }
+        };
+
+        // Charger section sélectionnée
+        document.getElementById('section-select').addEventListener('change', async () => {
+            const section = document.getElementById('section-select').value;
+            
+            try {
+                const sectionRef = window.dbRef(window.firebaseDB, `page_sections/${section}`);
+                const snapshot = await window.dbGet(sectionRef);
+                
+                if (snapshot.exists()) {
+                    const data = snapshot.val();
+                    document.getElementById('section-title').value = data.title || '';
+                    document.getElementById('section-content').value = data.content || '';
+                    document.getElementById('section-image-url').value = data.media || '';
+                } else {
+                    document.getElementById('section-title').value = '';
+                    document.getElementById('section-content').value = '';
+                    document.getElementById('section-image-url').value = '';
+                }
+            } catch (error) {
+                console.error('Erreur chargement section:', error);
+            }
+        });
+
+        // Prévisualisation en temps réel
+        function setupPreview() {
+            // Prévisualisation news
+            const newsTitle = document.getElementById('news-title');
+            const newsContent = document.getElementById('news-content');
+            const newsPriority = document.getElementById('news-priority');
+            const newsImageUrl = document.getElementById('news-image-url');
+            
+            function updateNewsPreview() {
+                document.getElementById('preview-title').textContent = newsTitle.value || 'Titre de la news...';
+                document.getElementById('preview-content').innerHTML = (newsContent.value || 'Contenu de la news...').replace(/\n/g, '<br>');
+                
+                const priority = newsPriority.value;
+                const priorityEl = document.getElementById('preview-priority');
+                priorityEl.className = `news-priority priority-${priority}`;
+                priorityEl.textContent = priority.toUpperCase();
+                
+                const imageDiv = document.getElementById('preview-image');
+                if (newsImageUrl.value) {
+                    imageDiv.innerHTML = `<img src="${newsImageUrl.value}" alt="Preview" style="width: 100%; height: auto; max-height: 150px; object-fit: contain; border-radius: 8px; margin: 10px 0; background: rgba(255,255,255,0.1);">`;
+                } else {
+                    imageDiv.innerHTML = '';
+                }
+            }
+            
+            newsTitle.addEventListener('input', updateNewsPreview);
+            newsContent.addEventListener('input', updateNewsPreview);
+            newsPriority.addEventListener('change', updateNewsPreview);
+            newsImageUrl.addEventListener('input', updateNewsPreview);
+            
+            // Prévisualisation avis
+            const testimonialText = document.getElementById('testimonial-text');
+            const testimonialAuthor = document.getElementById('testimonial-author');
+            const testimonialImageUrl = document.getElementById('testimonial-image-url');
+            
+            function updateTestimonialPreview() {
+                document.getElementById('testimonial-preview-text').innerHTML = `"${(testimonialText.value || 'Texte de l\'avis...').replace(/\n/g, '<br>')}"`;
+                document.getElementById('testimonial-preview-author').textContent = `- ${testimonialAuthor.value || 'Nom du client'}`;
+                
+                const imageDiv = document.getElementById('testimonial-preview-image');
+                if (testimonialImageUrl.value) {
+                    imageDiv.innerHTML = `<img src="${testimonialImageUrl.value}" alt="Preview" style="width: 100%; height: auto; max-height: 120px; object-fit: contain; border-radius: 8px; margin-bottom: 15px; background: rgba(255,255,255,0.1);">`;
+                } else {
+                    imageDiv.innerHTML = '';
+                }
+            }
+            
+            testimonialText.addEventListener('input', updateTestimonialPreview);
+            testimonialAuthor.addEventListener('input', updateTestimonialPreview);
+            testimonialImageUrl.addEventListener('input', updateTestimonialPreview);
+        }
+        
+        // Initialisation
+        document.addEventListener('DOMContentLoaded', () => {
+            loadTestimonials();
+            loadNews();
+            setupPreview();
+            
+            // Upload d'images configuré avec base64
+            console.log('Service d\'upload d\'images: Base64');
+        });
+    </script>
+</body>
+</html>

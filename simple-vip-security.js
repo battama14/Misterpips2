@@ -49,3 +49,4 @@ if (vipPages.includes(currentPage)) {
 } else {
     console.log('📄 Page publique:', currentPage);
 }
+
