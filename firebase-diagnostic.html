@@ -1,0 +1,1262 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔧 Diagnostic Firebase - Misterpips</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: Arial, sans-serif; 
+            background: #0f0f23; 
+            color: white; 
+            padding: 20px; 
+            line-height: 1.6;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        h1 { color: #00d4ff; margin-bottom: 20px; text-align: center; }
+        .section { 
+            background: rgba(255,255,255,0.1); 
+            margin: 20px 0; 
+            padding: 20px; 
+            border-radius: 10px; 
+            border: 1px solid #00d4ff;
+        }
+        .section h2 { color: #00d4ff; margin-bottom: 15px; }
+        .test-btn { 
+            background: #00d4ff; 
+            color: #0f0f23; 
+            border: none; 
+            padding: 10px 20px; 
+            border-radius: 5px; 
+            cursor: pointer; 
+            margin: 5px; 
+            font-weight: bold;
+        }
+        .test-btn:hover { background: #0099cc; }
+        .result { 
+            background: rgba(0,0,0,0.3); 
+            padding: 15px; 
+            margin: 10px 0; 
+            border-radius: 5px; 
+            border-left: 4px solid #00d4ff;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .success { border-left-color: #4CAF50; color: #4CAF50; }
+        .error { border-left-color: #f44336; color: #f44336; }
+        .warning { border-left-color: #ff9800; color: #ff9800; }
+        .info { border-left-color: #2196F3; color: #2196F3; }
+        .status { 
+            display: inline-block; 
+            padding: 5px 10px; 
+            border-radius: 15px; 
+            font-size: 12px; 
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        .status.online { background: #4CAF50; color: white; }
+        .status.offline { background: #f44336; color: white; }
+        .status.loading { background: #ff9800; color: white; }
+        input, select { 
+            background: rgba(255,255,255,0.1); 
+            border: 1px solid #00d4ff; 
+            color: white; 
+            padding: 8px; 
+            border-radius: 5px; 
+            margin: 5px;
+        }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Diagnostic Firebase - Misterpips</h1>
+        
+        <div class="section">
+            <h2>📊 État de la Connexion Firebase</h2>
+            <div id="connectionStatus">
+                <span>Firebase:</span><span id="firebaseStatus" class="status loading">Vérification...</span>
+                <span>Auth:</span><span id="authStatus" class="status loading">Vérification...</span>
+                <span>Database:</span><span id="dbStatus" class="status loading">Vérification...</span>
+            </div>
+            <button class="test-btn" onclick="checkFirebaseConnection()">🔄 Vérifier Connexion</button>
+            <div id="connectionResult" class="result"></div>
+        </div>
+
+        <div class="grid">
+            <div class="section">
+                <h2>👤 Test Authentification</h2>
+                <button class="test-btn" onclick="testAuth()">🔐 Tester Auth</button>
+                <button class="test-btn" onclick="testUserPermissions()">🛡️ Tester Permissions</button>
+                <div id="authResult" class="result"></div>
+            </div>
+
+            <div class="section">
+                <h2>💾 Test Base de Données</h2>
+                <button class="test-btn" onclick="testDatabaseRead()">📖 Test Lecture</button>
+                <button class="test-btn" onclick="testDatabaseWrite()">✍️ Test Écriture</button>
+                <button class="test-btn" onclick="testUserData()">👤 Données Utilisateur</button>
+                <div id="dbResult" class="result"></div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>💬 Test Chat</h2>
+            <input type="text" id="testMessage" placeholder="Message de test..." maxlength="50">
+            <button class="test-btn" onclick="testChatSend()">📤 Envoyer Test</button>
+            <button class="test-btn" onclick="testChatRead()">📥 Lire Messages</button>
+            <button class="test-btn" onclick="clearTestMessages()">🗑️ Nettoyer Tests</button>
+            <button class="test-btn" onclick="diagnoseChatDoubles()">🔍 Diagnostic Doublons</button>
+            <div id="chatResult" class="result"></div>
+        </div>
+
+        <div class="section">
+            <h2>📈 Test Trading Data</h2>
+            <button class="test-btn" onclick="testTradingData()">📊 Vérifier Trades</button>
+            <button class="test-btn" onclick="testRankingData()">🏆 Test Classement</button>
+            <button class="test-btn" onclick="syncLocalToFirebase()">🔄 Sync Local→Firebase</button>
+            <div id="tradingResult" class="result"></div>
+        </div>
+
+        <div class="section">
+            <h2>👥 Gestion Utilisateurs VIP</h2>
+            <div style="margin-bottom: 15px;">
+                <input type="email" id="userEmail" placeholder="Email utilisateur...">
+                <input type="password" id="userPassword" placeholder="Mot de passe...">
+                <button class="test-btn" onclick="addVIPUser()">➕ Ajouter VIP</button>
+                <button class="test-btn" onclick="removeVIPUser()">➖ Supprimer VIP</button>
+            </div>
+            <button class="test-btn" onclick="listVIPUsers()">📋 Lister VIP</button>
+            <button class="test-btn" onclick="checkUserExists()">🔍 Vérifier Utilisateur</button>
+            <button class="test-btn" onclick="repairExistingUser()">🔧 Réparer Utilisateur</button>
+            <button class="test-btn" onclick="forceDeleteUser()">🗑️ Supprimer Complètement</button>
+            <button class="test-btn" onclick="cleanAuthUser()">🧹 Nettoyer Auth</button>
+            <button class="test-btn" onclick="createWithNewEmail()">🔄 Créer avec Email Modifié</button>
+            <div id="vipResult" class="result"></div>
+        </div>
+
+        <div class="section">
+            <h2>🔧 Actions de Réparation</h2>
+            <button class="test-btn" onclick="repairUserProfile()">👤 Réparer Profil</button>
+            <button class="test-btn" onclick="repairPermissions()">🛡️ Réparer Permissions</button>
+            <button class="test-btn" onclick="cleanDuplicates()">🧹 Nettoyer Doublons</button>
+            <button class="test-btn" onclick="resetFirebaseConnection()">🔄 Reset Connexion</button>
+            <div id="repairResult" class="result"></div>
+        </div>
+
+        <div class="section">
+            <h2>📋 Logs en Temps Réel</h2>
+            <button class="test-btn" onclick="clearLogs()">🗑️ Vider Logs</button>
+            <button class="test-btn" onclick="exportLogs()">💾 Exporter Logs</button>
+            <div id="realTimeLogs" class="result" style="max-height: 200px;"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js';
+        import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, deleteUser, updatePassword, signOut } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js';
+        import { getDatabase, ref, set, get, push, remove, onValue, off } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDSDK0NfVSs_VQb3TnrixiJbOpTsmoUMvU",
+            authDomain: "misterpips-b71fb.firebaseapp.com",
+            databaseURL: "https://misterpips-b71fb-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "misterpips-b71fb",
+            storageBucket: "misterpips-b71fb.firebasestorage.app",
+            messagingSenderId: "574231126409",
+            appId: "1:574231126409:web:b7ed93ac4ea62e247dc158"
+        };
+
+        let app, auth, db, currentUser = null;
+        let logs = [];
+
+        // Initialisation
+        try {
+            app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            db = getDatabase(app);
+            window.firebaseApp = app;
+            window.firebaseAuth = auth;
+            window.firebaseDB = db;
+            log('✅ Firebase initialisé avec succès', 'success');
+        } catch (error) {
+            log('❌ Erreur initialisation Firebase: ' + error.message, 'error');
+        }
+
+        // Surveillance auth
+        onAuthStateChanged(auth, (user) => {
+            currentUser = user;
+            updateAuthStatus(user);
+            if (user) {
+                log(`👤 Utilisateur connecté: ${user.email} (${user.uid})`, 'success');
+                sessionStorage.setItem('firebaseUID', user.uid);
+                sessionStorage.setItem('userEmail', user.email);
+            } else {
+                log('❌ Aucun utilisateur connecté', 'warning');
+            }
+        });
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}`;
+            logs.push({ timestamp, message, type });
+            
+            const logsDiv = document.getElementById('realTimeLogs');
+            if (logsDiv) {
+                logsDiv.innerHTML = logs.slice(-20).map(l => 
+                    `<div class="${l.type}">[${l.timestamp}] ${l.message}</div>`
+                ).join('');
+                logsDiv.scrollTop = logsDiv.scrollHeight;
+            }
+            console.log(logEntry);
+        }
+
+        function updateStatus(elementId, status, text) {
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.className = `status ${status}`;
+                element.textContent = text;
+            }
+        }
+
+        function updateAuthStatus(user) {
+            if (user) {
+                updateStatus('authStatus', 'online', 'Connecté');
+                updateStatus('firebaseStatus', 'online', 'Actif');
+            } else {
+                updateStatus('authStatus', 'offline', 'Déconnecté');
+            }
+        }
+
+        // Tests globaux
+        window.checkFirebaseConnection = async function() {
+            const result = document.getElementById('connectionResult');
+            result.innerHTML = '';
+            
+            try {
+                // Test Firebase App
+                if (app) {
+                    log('✅ Firebase App: OK', 'success');
+                    updateStatus('firebaseStatus', 'online', 'Connecté');
+                } else {
+                    throw new Error('Firebase App non initialisé');
+                }
+
+                // Test Auth
+                if (auth) {
+                    log('✅ Firebase Auth: OK', 'success');
+                    if (currentUser) {
+                        log(`👤 Utilisateur: ${currentUser.email}`, 'info');
+                        updateStatus('authStatus', 'online', 'Connecté');
+                    } else {
+                        log('⚠️ Aucun utilisateur connecté', 'warning');
+                        updateStatus('authStatus', 'offline', 'Déconnecté');
+                    }
+                } else {
+                    throw new Error('Firebase Auth non initialisé');
+                }
+
+                // Test Database
+                if (db) {
+                    const testRef = ref(db, '.info/connected');
+                    const snapshot = await get(testRef);
+                    if (snapshot.exists()) {
+                        log('✅ Firebase Database: Connecté', 'success');
+                        updateStatus('dbStatus', 'online', 'Connecté');
+                    } else {
+                        log('⚠️ Firebase Database: Déconnecté', 'warning');
+                        updateStatus('dbStatus', 'offline', 'Déconnecté');
+                    }
+                } else {
+                    throw new Error('Firebase Database non initialisé');
+                }
+
+                result.innerHTML = '<div class="success">✅ Tous les services Firebase sont opérationnels</div>';
+                
+            } catch (error) {
+                log('❌ Erreur connexion: ' + error.message, 'error');
+                result.innerHTML = `<div class="error">❌ Erreur: ${error.message}</div>`;
+            }
+        };
+
+        window.testAuth = async function() {
+            const result = document.getElementById('authResult');
+            result.innerHTML = '';
+            
+            try {
+                if (!currentUser) {
+                    result.innerHTML = '<div class="warning">⚠️ Aucun utilisateur connecté. Redirection vers la page de connexion...</div>';
+                    setTimeout(() => window.location.href = 'index.html', 2000);
+                    return;
+                }
+
+                log(`🔐 Test auth pour: ${currentUser.email}`, 'info');
+                
+                // Vérifier le token
+                const token = await currentUser.getIdToken();
+                log('✅ Token Firebase obtenu', 'success');
+                
+                // Vérifier les claims
+                const tokenResult = await currentUser.getIdTokenResult();
+                log(`🎫 Token valide jusqu'à: ${new Date(tokenResult.expirationTime)}`, 'info');
+                
+                result.innerHTML = `
+                    <div class="success">✅ Authentification OK</div>
+                    <div class="info">Email: ${currentUser.email}</div>
+                    <div class="info">UID: ${currentUser.uid}</div>
+                    <div class="info">Token valide: ${tokenResult.expirationTime}</div>
+                `;
+                
+            } catch (error) {
+                log('❌ Erreur auth: ' + error.message, 'error');
+                result.innerHTML = `<div class="error">❌ Erreur: ${error.message}</div>`;
+            }
+        };
+
+        window.testUserPermissions = async function() {
+            const result = document.getElementById('authResult');
+            
+            try {
+                if (!currentUser) {
+                    result.innerHTML = '<div class="error">❌ Aucun utilisateur connecté</div>';
+                    return;
+                }
+
+                log('🛡️ Test permissions utilisateur...', 'info');
+                
+                // Vérifier profil utilisateur
+                const userRef = ref(db, `users/${currentUser.uid}`);
+                const snapshot = await get(userRef);
+                
+                if (snapshot.exists()) {
+                    const userData = snapshot.val();
+                    log(`✅ Profil utilisateur trouvé: VIP=${userData.isVIP}`, 'success');
+                    
+                    result.innerHTML += `
+                        <div class="success">✅ Profil utilisateur trouvé</div>
+                        <div class="info">VIP: ${userData.isVIP ? 'Oui' : 'Non'}</div>
+                        <div class="info">Email: ${userData.email || 'Non défini'}</div>
+                        <div class="info">Dernière connexion: ${userData.lastLogin || 'Jamais'}</div>
+                    `;
+                } else {
+                    log('❌ Profil utilisateur introuvable', 'error');
+                    result.innerHTML += '<div class="error">❌ Profil utilisateur introuvable dans Firebase</div>';
+                }
+                
+            } catch (error) {
+                log('❌ Erreur permissions: ' + error.message, 'error');
+                result.innerHTML += `<div class="error">❌ Erreur: ${error.message}</div>`;
+            }
+        };
+
+        window.testDatabaseRead = async function() {
+            const result = document.getElementById('dbResult');
+            result.innerHTML = '';
+            
+            try {
+                log('📖 Test lecture base de données...', 'info');
+                
+                // Test lecture générale
+                const testRef = ref(db, 'test');
+                const snapshot = await get(testRef);
+                log('✅ Lecture DB: OK', 'success');
+                
+                // Test lecture utilisateurs
+                const usersRef = ref(db, 'users');
+                const usersSnapshot = await get(usersRef);
+                const userCount = usersSnapshot.exists() ? Object.keys(usersSnapshot.val()).length : 0;
+                log(`👥 Utilisateurs trouvés: ${userCount}`, 'info');
+                
+                result.innerHTML = `
+                    <div class="success">✅ Lecture base de données: OK</div>
+                    <div class="info">Utilisateurs dans la DB: ${userCount}</div>
+                `;
+                
+            } catch (error) {
+                log('❌ Erreur lecture DB: ' + error.message, 'error');
+                result.innerHTML = `<div class="error">❌ Erreur: ${error.message}</div>`;
+            }
+        };
+
+        window.testDatabaseWrite = async function() {
+            const result = document.getElementById('dbResult');
+            
+            try {
+                if (!currentUser) {
+                    result.innerHTML += '<div class="error">❌ Aucun utilisateur connecté</div>';
+                    return;
+                }
+
+                log('✍️ Test écriture base de données...', 'info');
+                
+                const testData = {
+                    timestamp: Date.now(),
+                    user: currentUser.uid,
+                    test: 'diagnostic'
+                };
+                
+                const testRef = ref(db, `diagnostic_tests/${Date.now()}`);
+                await set(testRef, testData);
+                log('✅ Écriture DB: OK', 'success');
+                
+                result.innerHTML += '<div class="success">✅ Écriture base de données: OK</div>';
+                
+            } catch (error) {
+                log('❌ Erreur écriture DB: ' + error.message, 'error');
+                result.innerHTML += `<div class="error">❌ Erreur: ${error.message}</div>`;
+            }
+        };
+
+        window.testUserData = async function() {
+            const result = document.getElementById('dbResult');
+            
+            try {
+                if (!currentUser) {
+                    result.innerHTML += '<div class="error">❌ Aucun utilisateur connecté</div>';
+                    return;
+                }
+
+                log('👤 Test données utilisateur...', 'info');
+                
+                // Vérifier données dashboard
+                const dashboardRef = ref(db, `dashboards/${currentUser.uid}`);
+                const dashboardSnapshot = await get(dashboardRef);
+                
+                if (dashboardSnapshot.exists()) {
+                    const data = dashboardSnapshot.val();
+                    const tradesCount = data.trades ? (Array.isArray(data.trades) ? data.trades.length : Object.keys(data.trades).length) : 0;
+                    log(`📊 Dashboard trouvé: ${tradesCount} trades`, 'success');
+                    
+                    result.innerHTML += `
+                        <div class="success">✅ Données dashboard trouvées</div>
+                        <div class="info">Trades: ${tradesCount}</div>
+                        <div class="info">Capital: ${data.capital || 'Non défini'}</div>
+                    `;
+                } else {
+                    log('⚠️ Aucune donnée dashboard trouvée', 'warning');
+                    result.innerHTML += '<div class="warning">⚠️ Aucune donnée dashboard trouvée</div>';
+                }
+                
+            } catch (error) {
+                log('❌ Erreur données utilisateur: ' + error.message, 'error');
+                result.innerHTML += `<div class="error">❌ Erreur: ${error.message}</div>`;
+            }
+        };
+
+        window.testChatSend = async function() {
+            const result = document.getElementById('chatResult');
+            const messageInput = document.getElementById('testMessage');
+            const message = messageInput.value.trim() || 'Test diagnostic';
+            
+            try {
+                if (!currentUser) {
+                    result.innerHTML = '<div class="error">❌ Aucun utilisateur connecté</div>';
+                    return;
+                }
+
+                log('📤 Test envoi message chat...', 'info');
+                
+                const messageData = {
+                    id: Date.now(),
+                    userId: currentUser.uid,
+                    nickname: 'Test Diagnostic',
+                    message: `[TEST] ${message}`,
+                    timestamp: Date.now(),
+                    date: new Date().toISOString().split('T')[0]
+                };
+                
+                const messagesRef = ref(db, 'vip_chat');
+                await push(messagesRef, messageData);
+                log('✅ Message envoyé avec succès', 'success');
+                
+                messageInput.value = '';
+                result.innerHTML = '<div class="success">✅ Message de test envoyé</div>';
+                
+            } catch (error) {
+                log('❌ Erreur envoi message: ' + error.message, 'error');
+                result.innerHTML = `<div class="error">❌ Erreur: ${error.message}</div>`;
+            }
+        };
+
+        window.testChatRead = async function() {
+            const result = document.getElementById('chatResult');
+            
+            try {
+                log('📥 Test lecture messages chat...', 'info');
+                
+                const messagesRef = ref(db, 'vip_chat');
+                const snapshot = await get(messagesRef);
+                
+                if (snapshot.exists()) {
+                    const messages = Object.values(snapshot.val());
+                    const testMessages = messages.filter(m => m.message && m.message.includes('[TEST]'));
+                    log(`💬 Messages trouvés: ${messages.length} (${testMessages.length} tests)`, 'success');
+                    
+                    result.innerHTML += `
+                        <div class="success">✅ Messages chargés</div>
+                        <div class="info">Total: ${messages.length}</div>
+                        <div class="info">Messages de test: ${testMessages.length}</div>
+                    `;
+                } else {
+                    log('⚠️ Aucun message trouvé', 'warning');
+                    result.innerHTML += '<div class="warning">⚠️ Aucun message dans le chat</div>';
+                }
+                
+            } catch (error) {
+                log('❌ Erreur lecture messages: ' + error.message, 'error');
+                result.innerHTML += `<div class="error">❌ Erreur: ${error.message}</div>`;
+            }
+        };
+
+        window.clearTestMessages = async function() {
+            const result = document.getElementById('chatResult');
+            
+            try {
+                log('🗑️ Nettoyage messages de test...', 'info');
+                
+                const messagesRef = ref(db, 'vip_chat');
+                const snapshot = await get(messagesRef);
+                
+                if (snapshot.exists()) {
+                    const messages = snapshot.val();
+                    let deletedCount = 0;
+                    
+                    for (const [key, message] of Object.entries(messages)) {
+                        if (message.message && message.message.includes('[TEST]')) {
+                            await remove(ref(db, `vip_chat/${key}`));
+                            deletedCount++;
+                        }
+                    }
+                    
+                    log(`🗑️ ${deletedCount} messages de test supprimés`, 'success');
+                    result.innerHTML += `<div class="success">✅ ${deletedCount} messages de test supprimés</div>`;
+                } else {
+                    result.innerHTML += '<div class="info">ℹ️ Aucun message à supprimer</div>';
+                }
+                
+            } catch (error) {
+                log('❌ Erreur nettoyage: ' + error.message, 'error');
+                result.innerHTML += `<div class="error">❌ Erreur: ${error.message}</div>`;
+            }
+        };
+
+        window.testTradingData = async function() {
+            const result = document.getElementById('tradingResult');
+            result.innerHTML = '';
+            
+            try {
+                if (!currentUser) {
+                    result.innerHTML = '<div class="error">❌ Aucun utilisateur connecté</div>';
+                    return;
+                }
+
+                log('📈 Test données de trading...', 'info');
+                
+                const tradesRef = ref(db, `dashboards/${currentUser.uid}/trades`);
+                const snapshot = await get(tradesRef);
+                
+                if (snapshot.exists()) {
+                    const trades = snapshot.val();
+                    const tradesArray = Array.isArray(trades) ? trades : Object.values(trades);
+                    const today = new Date().toISOString().split('T')[0];
+                    const todayTrades = tradesArray.filter(t => t.date === today);
+                    
+                    log(`📊 Trades trouvés: ${tradesArray.length} (${todayTrades.length} aujourd'hui)`, 'success');
+                    
+                    result.innerHTML = `
+                        <div class="success">✅ Données de trading trouvées</div>
+                        <div class="info">Total trades: ${tradesArray.length}</div>
+                        <div class="info">Trades aujourd'hui: ${todayTrades.length}</div>
+                    `;
+                } else {
+                    log('⚠️ Aucune donnée de trading trouvée', 'warning');
+                    result.innerHTML = '<div class="warning">⚠️ Aucune donnée de trading trouvée</div>';
+                }
+                
+            } catch (error) {
+                log('❌ Erreur données trading: ' + error.message, 'error');
+                result.innerHTML = `<div class="error">❌ Erreur: ${error.message}</div>`;
+            }
+        };
+
+        window.testRankingData = async function() {
+            const result = document.getElementById('tradingResult');
+            
+            try {
+                log('🏆 Test données classement...', 'info');
+                
+                const usersRef = ref(db, 'users');
+                const snapshot = await get(usersRef);
+                
+                if (snapshot.exists()) {
+                    const users = snapshot.val();
+                    const vipUsers = Object.entries(users).filter(([uid, data]) => data.isVIP);
+                    log(`👥 Utilisateurs VIP trouvés: ${vipUsers.length}`, 'success');
+                    
+                    result.innerHTML += `
+                        <div class="success">✅ Données classement OK</div>
+                        <div class="info">Utilisateurs VIP: ${vipUsers.length}</div>
+                    `;
+                } else {
+                    log('⚠️ Aucun utilisateur trouvé', 'warning');
+                    result.innerHTML += '<div class="warning">⚠️ Aucun utilisateur trouvé</div>';
+                }
+                
+            } catch (error) {
+                log('❌ Erreur classement: ' + error.message, 'error');
+                result.innerHTML += `<div class="error">❌ Erreur: ${error.message}</div>`;
+            }
+        };
+
+        window.syncLocalToFirebase = async function() {
+            const result = document.getElementById('tradingResult');
+            
+            try {
+                if (!currentUser) {
+                    result.innerHTML += '<div class="error">❌ Aucun utilisateur connecté</div>';
+                    return;
+                }
+
+                log('🔄 Synchronisation localStorage → Firebase...', 'info');
+                
+                const localData = localStorage.getItem('dashboardData');
+                if (localData) {
+                    const data = JSON.parse(localData);
+                    if (data.trades && data.trades.length > 0) {
+                        const tradesRef = ref(db, `dashboards/${currentUser.uid}/trades`);
+                        await set(tradesRef, data.trades);
+                        log(`✅ ${data.trades.length} trades synchronisés`, 'success');
+                        
+                        result.innerHTML += `<div class="success">✅ ${data.trades.length} trades synchronisés</div>`;
+                    } else {
+                        result.innerHTML += '<div class="warning">⚠️ Aucun trade à synchroniser</div>';
+                    }
+                } else {
+                    result.innerHTML += '<div class="warning">⚠️ Aucune donnée locale trouvée</div>';
+                }
+                
+            } catch (error) {
+                log('❌ Erreur synchronisation: ' + error.message, 'error');
+                result.innerHTML += `<div class="error">❌ Erreur: ${error.message}</div>`;
+            }
+        };
+
+        window.repairUserProfile = async function() {
+            const result = document.getElementById('repairResult');
+            result.innerHTML = '';
+            
+            try {
+                if (!currentUser) {
+                    result.innerHTML = '<div class="error">❌ Aucun utilisateur connecté</div>';
+                    return;
+                }
+
+                log('🔧 Réparation profil utilisateur...', 'info');
+                
+                const userRef = ref(db, `users/${currentUser.uid}`);
+                const userData = {
+                    email: currentUser.email,
+                    isVIP: true,
+                    lastLogin: new Date().toISOString(),
+                    repaired: true,
+                    repairedAt: Date.now()
+                };
+                
+                await set(userRef, userData);
+                log('✅ Profil utilisateur réparé', 'success');
+                
+                result.innerHTML = '<div class="success">✅ Profil utilisateur réparé</div>';
+                
+            } catch (error) {
+                log('❌ Erreur réparation profil: ' + error.message, 'error');
+                result.innerHTML = `<div class="error">❌ Erreur: ${error.message}</div>`;
+            }
+        };
+
+        window.repairPermissions = async function() {
+            const result = document.getElementById('repairResult');
+            
+            try {
+                if (!currentUser) {
+                    result.innerHTML += '<div class="error">❌ Aucun utilisateur connecté</div>';
+                    return;
+                }
+
+                log('🛡️ Réparation permissions...', 'info');
+                
+                // Forcer le rafraîchissement du token
+                await currentUser.getIdToken(true);
+                log('✅ Token rafraîchi', 'success');
+                
+                result.innerHTML += '<div class="success">✅ Permissions rafraîchies</div>';
+                
+            } catch (error) {
+                log('❌ Erreur réparation permissions: ' + error.message, 'error');
+                result.innerHTML += `<div class="error">❌ Erreur: ${error.message}</div>`;
+            }
+        };
+
+        window.cleanDuplicates = async function() {
+            const result = document.getElementById('repairResult');
+            
+            try {
+                log('🧹 Nettoyage doublons...', 'info');
+                
+                // Nettoyer les messages en double dans le chat
+                const messagesRef = ref(db, 'vip_chat');
+                const snapshot = await get(messagesRef);
+                
+                if (snapshot.exists()) {
+                    const messages = snapshot.val();
+                    const seen = new Set();
+                    let duplicates = 0;
+                    
+                    for (const [key, message] of Object.entries(messages)) {
+                        const signature = `${message.userId}_${message.message}_${message.timestamp}`;
+                        if (seen.has(signature)) {
+                            await remove(ref(db, `vip_chat/${key}`));
+                            duplicates++;
+                        } else {
+                            seen.add(signature);
+                        }
+                    }
+                    
+                    log(`🧹 ${duplicates} doublons supprimés`, 'success');
+                    result.innerHTML += `<div class="success">✅ ${duplicates} doublons supprimés</div>`;
+                } else {
+                    result.innerHTML += '<div class="info">ℹ️ Aucun message à nettoyer</div>';
+                }
+                
+            } catch (error) {
+                log('❌ Erreur nettoyage: ' + error.message, 'error');
+                result.innerHTML += `<div class="error">❌ Erreur: ${error.message}</div>`;
+            }
+        };
+
+        window.resetFirebaseConnection = async function() {
+            const result = document.getElementById('repairResult');
+            
+            try {
+                log('🔄 Reset connexion Firebase...', 'info');
+                
+                // Réinitialiser les références
+                window.firebaseApp = app;
+                window.firebaseAuth = auth;
+                window.firebaseDB = db;
+                
+                // Vider le cache
+                sessionStorage.clear();
+                
+                log('✅ Connexion Firebase réinitialisée', 'success');
+                result.innerHTML += '<div class="success">✅ Connexion réinitialisée</div>';
+                
+                // Recharger la page après 2 secondes
+                setTimeout(() => {
+                    window.location.reload();
+                }, 2000);
+                
+            } catch (error) {
+                log('❌ Erreur reset: ' + error.message, 'error');
+                result.innerHTML += `<div class="error">❌ Erreur: ${error.message}</div>`;
+            }
+        };
+
+        window.clearLogs = function() {
+            logs = [];
+            document.getElementById('realTimeLogs').innerHTML = '';
+            log('🗑️ Logs vidés', 'info');
+        };
+
+        window.exportLogs = function() {
+            const logText = logs.map(l => `[${l.timestamp}] ${l.type.toUpperCase()}: ${l.message}`).join('\n');
+            const blob = new Blob([logText], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `firebase-diagnostic-${new Date().toISOString().split('T')[0]}.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+            log('💾 Logs exportés', 'success');
+        };
+
+        // Gestion utilisateurs VIP
+        window.addVIPUser = async function() {
+            const result = document.getElementById('vipResult');
+            const email = document.getElementById('userEmail').value.trim();
+            const password = document.getElementById('userPassword').value.trim();
+            
+            if (!email || !password) {
+                result.innerHTML = '<div class="error">❌ Email et mot de passe requis</div>';
+                return;
+            }
+            
+            try {
+                log(`➕ Création utilisateur VIP: ${email}`, 'info');
+                
+                // Créer l'utilisateur
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                const newUser = userCredential.user;
+                
+                // Ajouter à la base VIP
+                const userRef = ref(db, `users/${newUser.uid}`);
+                await set(userRef, {
+                    email: email,
+                    isVIP: true,
+                    createdAt: new Date().toISOString(),
+                    createdBy: currentUser?.email || 'admin'
+                });
+                
+                log(`✅ Utilisateur VIP créé: ${email}`, 'success');
+                result.innerHTML = `<div class="success">✅ Utilisateur VIP créé: ${email}</div>`;
+                
+                // Vider les champs
+                document.getElementById('userEmail').value = '';
+                document.getElementById('userPassword').value = '';
+                
+            } catch (error) {
+                log(`❌ Erreur création VIP: ${error.message}`, 'error');
+                result.innerHTML = `<div class="error">❌ Erreur: ${error.message}</div>`;
+            }
+        };
+        
+        window.removeVIPUser = async function() {
+            const result = document.getElementById('vipResult');
+            const email = document.getElementById('userEmail').value.trim();
+            
+            if (!email) {
+                result.innerHTML = '<div class="error">❌ Email requis</div>';
+                return;
+            }
+            
+            try {
+                log(`➖ Suppression utilisateur VIP: ${email}`, 'info');
+                
+                // Trouver l'utilisateur par email
+                const usersRef = ref(db, 'users');
+                const snapshot = await get(usersRef);
+                
+                if (snapshot.exists()) {
+                    const users = snapshot.val();
+                    const userEntry = Object.entries(users).find(([uid, data]) => data.email === email);
+                    
+                    if (userEntry) {
+                        const [uid, userData] = userEntry;
+                        
+                        // Supprimer de la base VIP
+                        await remove(ref(db, `users/${uid}`));
+                        
+                        // Supprimer les données dashboard
+                        await remove(ref(db, `dashboards/${uid}`));
+                        
+                        log(`✅ Utilisateur VIP supprimé: ${email}`, 'success');
+                        result.innerHTML = `<div class="success">✅ Utilisateur VIP supprimé: ${email}</div>`;
+                        
+                        document.getElementById('userEmail').value = '';
+                    } else {
+                        result.innerHTML = `<div class="warning">⚠️ Utilisateur non trouvé: ${email}</div>`;
+                    }
+                } else {
+                    result.innerHTML = '<div class="warning">⚠️ Aucun utilisateur dans la base</div>';
+                }
+                
+            } catch (error) {
+                log(`❌ Erreur suppression VIP: ${error.message}`, 'error');
+                result.innerHTML = `<div class="error">❌ Erreur: ${error.message}</div>`;
+            }
+        };
+        
+        window.listVIPUsers = async function() {
+            const result = document.getElementById('vipResult');
+            
+            try {
+                log('📋 Liste des utilisateurs VIP...', 'info');
+                
+                const usersRef = ref(db, 'users');
+                const snapshot = await get(usersRef);
+                
+                if (snapshot.exists()) {
+                    const users = snapshot.val();
+                    const vipUsers = Object.entries(users)
+                        .filter(([uid, data]) => data.isVIP)
+                        .map(([uid, data]) => ({ uid, ...data }));
+                    
+                    log(`👥 ${vipUsers.length} utilisateurs VIP trouvés`, 'success');
+                    
+                    let html = `<div class="success">✅ ${vipUsers.length} utilisateurs VIP:</div>`;
+                    vipUsers.forEach(user => {
+                        html += `
+                            <div class="info">
+                                👤 ${user.email} (${user.uid.substring(0, 8)}...)
+                                <br>    Créé: ${user.createdAt || 'Inconnu'}
+                            </div>
+                        `;
+                    });
+                    
+                    result.innerHTML = html;
+                } else {
+                    result.innerHTML = '<div class="warning">⚠️ Aucun utilisateur dans la base</div>';
+                }
+                
+            } catch (error) {
+                log(`❌ Erreur liste VIP: ${error.message}`, 'error');
+                result.innerHTML = `<div class="error">❌ Erreur: ${error.message}</div>`;
+            }
+        };
+        
+        window.resetUserPassword = async function() {
+            const result = document.getElementById('vipResult');
+            const email = document.getElementById('userEmail').value.trim();
+            const newPassword = document.getElementById('userPassword').value.trim();
+            
+            if (!email || !newPassword) {
+                result.innerHTML = '<div class="error">❌ Email et nouveau mot de passe requis</div>';
+                return;
+            }
+            
+            try {
+                log(`🔑 Reset mot de passe pour: ${email}`, 'info');
+                
+                result.innerHTML = `
+                    <div class="warning">⚠️ Pour reset le mot de passe:</div>
+                    <div class="info">1. L'utilisateur doit se connecter avec son ancien mot de passe</div>
+                    <div class="info">2. Ou utiliser "Mot de passe oublié" sur la page de connexion</div>
+                    <div class="info">3. Ou supprimer et recréer le compte avec le nouveau mot de passe</div>
+                `;
+                
+            } catch (error) {
+                log(`❌ Erreur reset password: ${error.message}`, 'error');
+                result.innerHTML = `<div class="error">❌ Erreur: ${error.message}</div>`;
+            }
+        };
+        
+        window.checkUserExists = async function() {
+            const result = document.getElementById('vipResult');
+            const email = document.getElementById('userEmail').value.trim();
+            
+            if (!email) {
+                result.innerHTML = '<div class="error">❌ Email requis</div>';
+                return;
+            }
+            
+            try {
+                log(`🔍 Vérification utilisateur: ${email}`, 'info');
+                
+                const usersRef = ref(db, 'users');
+                const snapshot = await get(usersRef);
+                
+                if (snapshot.exists()) {
+                    const users = snapshot.val();
+                    const userEntry = Object.entries(users).find(([uid, data]) => data.email === email);
+                    
+                    if (userEntry) {
+                        const [uid, userData] = userEntry;
+                        log(`✅ Utilisateur trouvé dans Firebase: ${uid}`, 'success');
+                        
+                        result.innerHTML = `
+                            <div class="success">✅ Utilisateur existe dans Firebase</div>
+                            <div class="info">Email: ${userData.email}</div>
+                            <div class="info">UID: ${uid}</div>
+                            <div class="info">VIP: ${userData.isVIP ? 'Oui' : 'Non'}</div>
+                            <div class="info">Créé: ${userData.createdAt || 'Inconnu'}</div>
+                        `;
+                    } else {
+                        log(`❌ Utilisateur non trouvé dans Firebase: ${email}`, 'error');
+                        result.innerHTML = `<div class="error">❌ Utilisateur non trouvé dans Firebase</div>`;
+                    }
+                } else {
+                    result.innerHTML = '<div class="warning">⚠️ Aucun utilisateur dans la base</div>';
+                }
+                
+            } catch (error) {
+                log(`❌ Erreur vérification: ${error.message}`, 'error');
+                result.innerHTML = `<div class="error">❌ Erreur: ${error.message}</div>`;
+            }
+        };
+        
+        window.repairExistingUser = async function() {
+            const result = document.getElementById('vipResult');
+            const email = document.getElementById('userEmail').value.trim();
+            
+            if (!email) {
+                result.innerHTML = '<div class="error">❌ Email requis</div>';
+                return;
+            }
+            
+            try {
+                log(`🔧 Réparation utilisateur: ${email}`, 'info');
+                
+                const usersRef = ref(db, 'users');
+                const snapshot = await get(usersRef);
+                
+                if (snapshot.exists()) {
+                    const users = snapshot.val();
+                    const userEntry = Object.entries(users).find(([uid, data]) => data.email === email);
+                    
+                    if (userEntry) {
+                        const [uid, userData] = userEntry;
+                        
+                        const userRef = ref(db, `users/${uid}`);
+                        await set(userRef, {
+                            email: email,
+                            isVIP: true,
+                            lastLogin: new Date().toISOString(),
+                            repaired: true,
+                            repairedAt: Date.now(),
+                            createdAt: userData.createdAt || new Date().toISOString()
+                        });
+                        
+                        log(`✅ Profil réparé pour: ${email}`, 'success');
+                        result.innerHTML = `<div class="success">✅ Profil utilisateur réparé</div>`;
+                    } else {
+                        result.innerHTML = `<div class="error">❌ Utilisateur non trouvé: ${email}</div>`;
+                    }
+                } else {
+                    result.innerHTML = '<div class="warning">⚠️ Aucun utilisateur dans la base</div>';
+                }
+                
+            } catch (error) {
+                log(`❌ Erreur réparation: ${error.message}`, 'error');
+                result.innerHTML = `<div class="error">❌ Erreur: ${error.message}</div>`;
+            }
+        };
+        
+        window.forceDeleteUser = async function() {
+            const result = document.getElementById('vipResult');
+            const email = document.getElementById('userEmail').value.trim();
+            
+            if (!email) {
+                result.innerHTML = '<div class="error">❌ Email requis</div>';
+                return;
+            }
+            
+            if (!confirm(`⚠️ ATTENTION: Supprimer complètement ${email} ?`)) {
+                return;
+            }
+            
+            try {
+                log(`🗑️ Suppression complète: ${email}`, 'info');
+                
+                const usersRef = ref(db, 'users');
+                const snapshot = await get(usersRef);
+                
+                if (snapshot.exists()) {
+                    const users = snapshot.val();
+                    const userEntry = Object.entries(users).find(([uid, data]) => data.email === email);
+                    
+                    if (userEntry) {
+                        const [uid, userData] = userEntry;
+                        
+                        await remove(ref(db, `users/${uid}`));
+                        await remove(ref(db, `dashboards/${uid}`));
+                        
+                        log(`✅ Utilisateur supprimé complètement: ${email}`, 'success');
+                        result.innerHTML = `
+                            <div class="success">✅ Utilisateur supprimé complètement</div>
+                            <div class="info">Vous pouvez maintenant le recréer</div>
+                        `;
+                        
+                        document.getElementById('userEmail').value = '';
+                        document.getElementById('userPassword').value = '';
+                    } else {
+                        result.innerHTML = `<div class="warning">⚠️ Utilisateur non trouvé: ${email}</div>`;
+                    }
+                } else {
+                    result.innerHTML = '<div class="warning">⚠️ Aucun utilisateur dans la base</div>';
+                }
+                
+            } catch (error) {
+                log(`❌ Erreur suppression: ${error.message}`, 'error');
+                result.innerHTML = `<div class="error">❌ Erreur: ${error.message}</div>`;
+            }
+        };
+        
+        window.cleanAuthUser = async function() {
+            const result = document.getElementById('vipResult');
+            const email = document.getElementById('userEmail').value.trim();
+            const password = document.getElementById('userPassword').value.trim();
+            
+            if (!email || !password) {
+                result.innerHTML = '<div class="error">❌ Email et mot de passe requis pour nettoyer Auth</div>';
+                return;
+            }
+            
+            try {
+                log(`🧹 Nettoyage Firebase Auth pour: ${email}`, 'info');
+                
+                // Essayer de se connecter avec les identifiants
+                const userCredential = await signInWithEmailAndPassword(auth, email, password);
+                const user = userCredential.user;
+                
+                log(`✅ Connexion réussie, suppression du compte Auth...`, 'info');
+                
+                // Supprimer le compte de Firebase Auth
+                await deleteUser(user);
+                
+                log(`✅ Compte Auth supprimé pour: ${email}`, 'success');
+                result.innerHTML = `
+                    <div class="success">✅ Compte Firebase Auth nettoyé</div>
+                    <div class="info">Vous pouvez maintenant recréer le compte</div>
+                `;
+                
+            } catch (error) {
+                if (error.code === 'auth/invalid-credential') {
+                    log(`⚠️ Identifiants incorrects, tentative de suppression manuelle...`, 'warning');
+                    result.innerHTML = `
+                        <div class="warning">⚠️ Identifiants incorrects</div>
+                        <div class="info">Le compte existe dans Auth mais mot de passe incorrect</div>
+                        <div class="info">Contactez l'administrateur Firebase pour suppression manuelle</div>
+                    `;
+                } else {
+                    log(`❌ Erreur nettoyage Auth: ${error.message}`, 'error');
+                    result.innerHTML = `<div class="error">❌ Erreur: ${error.message}</div>`;
+                }
+            }
+        };
+        
+        window.createWithNewEmail = async function() {
+            const result = document.getElementById('vipResult');
+            const originalEmail = document.getElementById('userEmail').value.trim();
+            const password = document.getElementById('userPassword').value.trim();
+            
+            if (!originalEmail || !password) {
+                result.innerHTML = '<div class="error">❌ Email et mot de passe requis</div>';
+                return;
+            }
+            
+            try {
+                // Créer un email légèrement modifié
+                const [localPart, domain] = originalEmail.split('@');
+                const newEmail = `${localPart}+vip@${domain}`;
+                
+                log(`🔄 Création avec email modifié: ${newEmail}`, 'info');
+                
+                // Créer le nouveau compte
+                const userCredential = await createUserWithEmailAndPassword(auth, newEmail, password);
+                const newUser = userCredential.user;
+                
+                // Ajouter à la base VIP avec l'email original
+                const userRef = ref(db, `users/${newUser.uid}`);
+                await set(userRef, {
+                    email: originalEmail, // Utiliser l'email original
+                    authEmail: newEmail,  // Garder trace de l'email auth
+                    isVIP: true,
+                    createdAt: new Date().toISOString(),
+                    workaround: true
+                });
+                
+                log(`✅ Compte créé avec succès: ${newEmail}`, 'success');
+                result.innerHTML = `
+                    <div class="success">✅ Compte créé avec email modifié</div>
+                    <div class="info">Email de connexion: ${newEmail}</div>
+                    <div class="info">Email affiché: ${originalEmail}</div>
+                    <div class="info">Mot de passe: ${password}</div>
+                `;
+                
+                // Mettre à jour les champs
+                document.getElementById('userEmail').value = newEmail;
+                
+            } catch (error) {
+                log(`❌ Erreur création email modifié: ${error.message}`, 'error');
+                result.innerHTML = `<div class="error">❌ Erreur: ${error.message}</div>`;
+            }
+        };
+
+        window.diagnoseChatDoubles = async function() {
+            const result = document.getElementById('chatResult');
+            
+            try {
+                log('🔍 Diagnostic doublons chat...', 'info');
+                
+                const messagesRef = ref(db, 'vip_chat');
+                const snapshot = await get(messagesRef);
+                
+                if (snapshot.exists()) {
+                    const messages = Object.entries(snapshot.val());
+                    const duplicates = new Map();
+                    
+                    messages.forEach(([key, message]) => {
+                        const signature = `${message.userId}_${message.message}_${Math.floor(message.timestamp / 1000)}`;
+                        if (!duplicates.has(signature)) {
+                            duplicates.set(signature, []);
+                        }
+                        duplicates.get(signature).push({ key, message });
+                    });
+                    
+                    const realDuplicates = Array.from(duplicates.values()).filter(group => group.length > 1);
+                    
+                    log(`📊 ${realDuplicates.length} groupes de doublons trouvés`, realDuplicates.length > 0 ? 'warning' : 'success');
+                    
+                    let html = `<div class="${realDuplicates.length > 0 ? 'warning' : 'success'}">📊 ${realDuplicates.length} groupes de doublons</div>`;
+                    
+                    if (realDuplicates.length > 0) {
+                        html += '<div class="info">Doublons détectés:</div>';
+                        realDuplicates.slice(0, 5).forEach(group => {
+                            html += `<div class="info">• "${group[0].message.message.substring(0, 30)}..." (${group.length}x)</div>`;
+                        });
+                        html += '<button class="test-btn" onclick="fixChatDoubles()" style="margin-top: 10px;">🔧 Corriger Doublons</button>';
+                    }
+                    
+                    result.innerHTML = html;
+                } else {
+                    result.innerHTML = '<div class="info">ℹ️ Aucun message dans le chat</div>';
+                }
+                
+            } catch (error) {
+                log(`❌ Erreur diagnostic doublons: ${error.message}`, 'error');
+                result.innerHTML = `<div class="error">❌ Erreur: ${error.message}</div>`;
+            }
+        };
+        
+        window.fixChatDoubles = async function() {
+            const result = document.getElementById('chatResult');
+            
+            try {
+                log('🔧 Correction doublons chat...', 'info');
+                
+                const messagesRef = ref(db, 'vip_chat');
+                const snapshot = await get(messagesRef);
+                
+                if (snapshot.exists()) {
+                    const messages = Object.entries(snapshot.val());
+                    const seen = new Set();
+                    let deletedCount = 0;
+                    
+                    for (const [key, message] of messages) {
+                        const signature = `${message.userId}_${message.message}_${Math.floor(message.timestamp / 1000)}`;
+                        
+                        if (seen.has(signature)) {
+                            await remove(ref(db, `vip_chat/${key}`));
+                            deletedCount++;
+                            log(`🗑️ Doublon supprimé: ${key}`, 'info');
+                        } else {
+                            seen.add(signature);
+                        }
+                    }
+                    
+                    log(`✅ ${deletedCount} doublons supprimés`, 'success');
+                    result.innerHTML = `<div class="success">✅ ${deletedCount} doublons supprimés du chat</div>`;
+                } else {
+                    result.innerHTML = '<div class="info">ℹ️ Aucun message à corriger</div>';
+                }
+                
+            } catch (error) {
+                log(`❌ Erreur correction doublons: ${error.message}`, 'error');
+                result.innerHTML = `<div class="error">❌ Erreur: ${error.message}</div>`;
+            }
+        };
+        
+        // Vérification automatique au chargement
+        setTimeout(() => {
+            checkFirebaseConnection();
+            // Charger la liste VIP au démarrage
+            if (currentUser) {
+                listVIPUsers();
+            }
+        }, 1000);
+    </script>
+</body>
+</html>

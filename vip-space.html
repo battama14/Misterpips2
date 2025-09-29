@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="vip-styles.css">
     <link rel="stylesheet" href="mobile-responsive.css">
+    <link rel="stylesheet" href="mobile-nav-fix.css">
     <link rel="stylesheet" href="mobile-fixes-complete.css">
     <link rel="stylesheet" href="chat-mobile-styles.css">
     <link rel="stylesheet" href="mobile-fixes.css">
@@ -36,12 +37,37 @@
         
         onAuthStateChanged(auth, (user) => {
             console.log('État auth VIP:', user ? user.email : 'Non connecté');
-            // Redirection supprimée pour permettre l'accès VIP
+            if (!user) {
+                console.log('❌ Accès VIP refusé - redirection');
+                alert('Accès VIP requis. Veuillez vous connecter.');
+                window.location.href = 'index-fixed.html';
+                return;
+            }
+            // Vérifier le statut VIP dans Firebase
+            import('https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js').then(({ getDatabase, ref, get }) => {
+                const db = getDatabase();
+                const userRef = ref(db, `users/${user.uid}`);
+                get(userRef).then((snapshot) => {
+                    if (!snapshot.exists() || !snapshot.val().isVIP) {
+                        console.log('❌ Utilisateur non VIP - redirection');
+                        alert('Accès VIP requis.');
+                        window.location.href = 'index-fixed.html';
+                    } else {
+                        console.log('✅ Accès VIP autorisé');
+                        sessionStorage.setItem('firebaseUID', user.uid);
+                        sessionStorage.setItem('userEmail', user.email);
+                        sessionStorage.setItem('isVIP', 'true');
+                    }
+                }).catch(() => {
+                    alert('Erreur de vérification. Redirection.');
+                    window.location.href = 'index-fixed.html';
+                });
+            });
         });
         
         window.logout = () => {
             signOut(auth).then(() => {
-                window.location.href = 'index.html';
+                window.location.href = 'index-fixed.html';
             });
         };
     </script>
@@ -56,7 +82,7 @@
         <nav>
             <button class="mobile-menu-btn" id="mobileMenuBtn" style="display: none;">☰</button>
             <ul class="nav-links" id="navLinks">
-                <li><a href="index.html">Accueil</a></li>
+                <li><a href="index-fixed.html">Accueil</a></li>
                 <li><a href="#dashboard">Dashboard</a></li>
                 <li><a href="#planning">Planning Forex</a></li>
                 <li><a href="#analyses">Analyses</a></li>
@@ -271,6 +297,7 @@
     <script src="mobile-menu.js"></script>
     <script src="mobile-menu-complete.js"></script>
     <script src="mobile-optimizations.js"></script>
+    <script src="mobile-nav-fix.js"></script>
     <script type="module">
         import { signInWithEmailAndPassword } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js';
         

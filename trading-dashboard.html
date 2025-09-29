@@ -48,14 +48,17 @@
         onAuthStateChanged(auth, (user) => {
             if (!user) {
                 // Rediriger vers la page de connexion si pas connecté
-                window.location.href = 'index.html';
+                window.location.href = 'index-fixed.html';
             } else {
                 console.log('Utilisateur connecté:', user.email, user.uid);
                 // Définir l'utilisateur pour le dashboard
                 sessionStorage.setItem('firebaseUID', user.uid);
                 sessionStorage.setItem('userEmail', user.email);
+                
+
             }
         });
+
     </script>
 
 </head>
@@ -884,60 +887,76 @@
         
         @media (max-width: 768px) {
             .mobile-menu-btn {
-                display: block;
+                display: block !important;
             }
             
             .mobile-nav {
-                display: block;
+                display: block !important;
             }
             
             .nav-links {
-                position: fixed;
-                top: 0;
-                right: -300px;
-                width: 280px;
-                height: 100vh;
-                background: #1a1a2e;
-                border-left: 2px solid #00d4ff;
-                padding: 80px 20px 20px;
-                margin: 0;
-                list-style: none;
-                transition: right 0.3s ease;
-                z-index: 1000;
-                overflow-y: auto;
+                position: fixed !important;
+                top: 0 !important;
+                right: -300px !important;
+                width: 280px !important;
+                height: 100vh !important;
+                background: #1a1a2e !important;
+                border-left: 2px solid #00d4ff !important;
+                padding: 80px 20px 20px !important;
+                margin: 0 !important;
+                list-style: none !important;
+                transition: right 0.3s ease !important;
+                z-index: 1000 !important;
+                overflow-y: auto !important;
             }
             
             .nav-links.mobile-open {
-                right: 0;
+                right: 0 !important;
             }
             
             .nav-links li {
-                margin-bottom: 15px;
+                margin-bottom: 15px !important;
             }
             
             .nav-links a {
-                display: block;
-                color: white;
-                text-decoration: none;
-                padding: 15px;
-                border-radius: 8px;
-                background: rgba(0, 212, 255, 0.1);
-                border: 1px solid rgba(0, 212, 255, 0.3);
-                transition: all 0.3s ease;
-                font-size: 16px;
+                display: block !important;
+                color: white !important;
+                text-decoration: none !important;
+                padding: 15px !important;
+                border-radius: 8px !important;
+                background: rgba(0, 212, 255, 0.1) !important;
+                border: 1px solid rgba(0, 212, 255, 0.3) !important;
+                transition: all 0.3s ease !important;
+                font-size: 16px !important;
             }
             
             .nav-links a:hover {
-                background: rgba(0, 212, 255, 0.2);
-                transform: translateX(-5px);
+                background: rgba(0, 212, 255, 0.2) !important;
+                transform: translateX(-5px) !important;
+            }
+            
+            .nav-overlay.active {
+                display: block !important;
             }
         }
     </style>
     
-    <!-- Bouton de retour VIP -->
-    <div style="position: fixed; top: 20px; left: 20px; z-index: 500;">
-        <button onclick="window.location.href='vip-space.html'" style="background: rgba(0, 212, 255, 0.8); color: white; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; backdrop-filter: blur(10px); transition: all 0.3s ease;">🔙 Retour VIP</button>
+    <!-- Boutons navigation mobile -->
+    <div class="mobile-nav-buttons" style="position: fixed; bottom: 20px; left: 20px; right: 20px; z-index: 500; display: none;">
+        <div style="display: flex; gap: 10px; justify-content: center;">
+            <button onclick="window.location.href='vip-space.html'" style="background: rgba(0, 212, 255, 0.9); color: white; border: none; padding: 12px 16px; border-radius: 25px; cursor: pointer; backdrop-filter: blur(10px); font-size: 14px; font-weight: bold;">🏠 VIP</button>
+            <button onclick="window.location.href='trading-dashboard.html'" style="background: rgba(0, 212, 255, 0.9); color: white; border: none; padding: 12px 16px; border-radius: 25px; cursor: pointer; backdrop-filter: blur(10px); font-size: 14px; font-weight: bold;">📈 Dashboard</button>
+            <button onclick="window.history.back()" style="background: rgba(0, 212, 255, 0.9); color: white; border: none; padding: 12px 16px; border-radius: 25px; cursor: pointer; backdrop-filter: blur(10px); font-size: 14px; font-weight: bold;">🔙 Retour</button>
+        </div>
     </div>
+    
+    <style>
+        @media (max-width: 768px) {
+            .mobile-nav-buttons {
+                display: block !important;
+            }
+        }
+    </style>
     
 
     
@@ -1092,6 +1111,29 @@
             }, 1000);
         });
         
+        // Menu mobile fix
+        document.addEventListener('DOMContentLoaded', function() {
+            const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+            const navLinks = document.getElementById('navLinks');
+            const navOverlay = document.getElementById('navOverlay');
+            
+            if (mobileMenuBtn && navLinks) {
+                mobileMenuBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    navLinks.classList.toggle('mobile-open');
+                    if (navOverlay) navOverlay.classList.toggle('active');
+                });
+                
+                if (navOverlay) {
+                    navOverlay.addEventListener('click', function() {
+                        navLinks.classList.remove('mobile-open');
+                        navOverlay.classList.remove('active');
+                    });
+                }
+            }
+        });
+        
         // Gestionnaire du classement VIP simplifié
         class VIPRanking {
             constructor() {
@@ -1185,110 +1227,77 @@
                     if (window.firebaseDB) {
                         const { ref, get } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js');
                         
-                        // Essayer plusieurs chemins possibles pour les trades
-                        const paths = [
-                            `dashboards/${userId}/trades`,
-                            `trading_data/${userId}/trades`,
-                            `users/${userId}/trades`,
-                            `trades/${userId}`,
-                            `user_trades/${userId}`,
-                            `dashboards/${userId}`
-                        ];
+                        // Chercher directement dans dashboards/{userId}/trades
+                        const tradesRef = ref(window.firebaseDB, `dashboards/${userId}/trades`);
+                        const snapshot = await get(tradesRef);
                         
-                        for (const path of paths) {
-                            console.log(`🔍 Vérification chemin: ${path}`);
-                            const tradesRef = ref(window.firebaseDB, path);
-                            const snapshot = await get(tradesRef);
+                        if (snapshot.exists()) {
+                            console.log(`✅ Données trouvées pour ${userId}`);
+                            const trades = snapshot.val();
                             
-                            if (snapshot.exists()) {
-                                console.log(`✅ Données trouvées dans: ${path}`);
-                                const data = snapshot.val();
-                                console.log(`📊 Structure des données:`, Object.keys(data));
-                                let trades = [];
-                                
-                                // Si c'est un objet avec une propriété trades
-                                if (data.trades && Array.isArray(data.trades)) {
-                                    trades = data.trades;
-                                    console.log(`📈 Trades array trouvé: ${trades.length} trades`);
-                                } else if (data.trades && typeof data.trades === 'object') {
-                                    trades = Object.values(data.trades);
-                                    console.log(`📈 Trades object trouvé: ${trades.length} trades`);
-                                } else if (Array.isArray(data)) {
-                                    trades = data;
-                                    console.log(`📈 Data est array: ${trades.length} trades`);
-                                } else if (typeof data === 'object') {
-                                    // Essayer de trouver des trades dans l'objet
-                                    trades = Object.values(data).filter(item => 
-                                        item && typeof item === 'object' && item.currency && item.date
-                                    );
-                                    console.log(`📈 Trades filtrés de l'objet: ${trades.length} trades`);
-                                }
-                                
-                                const todayTrades = trades.filter(trade => {
-                                    const isToday = trade && trade.date === date;
-                                    const isClosed = trade.status === 'closed' || trade.status === 'completed';
-                                    console.log(`Trade ${trade.id}: date=${trade.date}, status=${trade.status}, isToday=${isToday}, isClosed=${isClosed}`);
-                                    return isToday && isClosed;
-                                });
-                                const dailyPnL = todayTrades.reduce((total, trade) => {
-                                    return total + (parseFloat(trade.pnl) || 0);
-                                }, 0);
-                                console.log(`✅ ${todayTrades.length} trades trouvés pour ${userId} le ${date}, P&L: ${dailyPnL}`);
-                                return { dailyPnL, tradeCount: todayTrades.length };
-                            } else {
-                                console.log(`❌ Pas de données dans: ${path}`);
+                            // Convertir en array si nécessaire
+                            let tradesArray = [];
+                            if (Array.isArray(trades)) {
+                                tradesArray = trades;
+                            } else if (typeof trades === 'object') {
+                                tradesArray = Object.values(trades);
                             }
-                        }
-                        
-                        // Si aucun chemin ne fonctionne, vérifier les données locales
-                        const possibleKeys = [
-                            `dashboard_${userId}`,
-                            `trading_${userId}`,
-                            `user_${userId}`,
-                            userId,
-                            'dashboardData', // Clé principale du dashboard
-                            'misterpips_dashboard'
-                        ];
-                        
-                        console.log(`🔍 Recherche dans localStorage pour ${userId}...`);
-                        
-                        for (const key of possibleKeys) {
-                            const localData = localStorage.getItem(key);
+                            
+                            console.log(`📊 Total trades: ${tradesArray.length}`);
+                            
+                            // Filtrer les trades d'aujourd'hui
+                            const todayTrades = tradesArray.filter(trade => {
+                                if (!trade || !trade.date) return false;
+                                
+                                const tradeDate = trade.date;
+                                const isToday = tradeDate === date;
+                                const isClosed = trade.status === 'closed' || trade.status === 'completed';
+                                
+                                console.log(`Trade ${trade.id || 'unknown'}: date=${tradeDate}, status=${trade.status}, isToday=${isToday}, isClosed=${isClosed}`);
+                                return isToday && isClosed;
+                            });
+                            
+                            const dailyPnL = todayTrades.reduce((total, trade) => {
+                                const pnl = parseFloat(trade.pnl) || 0;
+                                return total + pnl;
+                            }, 0);
+                            
+                            console.log(`✅ ${todayTrades.length} trades trouvés pour ${userId} le ${date}, P&L: ${dailyPnL}`);
+                            return { dailyPnL, tradeCount: todayTrades.length };
+                        } else {
+                            console.log(`❌ Pas de données Firebase pour: dashboards/${userId}/trades`);
+                            
+                            // Fallback: chercher dans localStorage et synchroniser
+                            const localData = localStorage.getItem('dashboardData');
                             if (localData) {
-                                console.log(`✅ Données localStorage trouvées dans: ${key}`);
                                 try {
                                     const data = JSON.parse(localData);
-                                    let trades = [];
-                                    
-                                    if (data.trades && Array.isArray(data.trades)) {
-                                        trades = data.trades;
-                                        console.log(`📈 Trades array localStorage: ${trades.length} trades`);
-                                    } else if (data.trades && typeof data.trades === 'object') {
-                                        trades = Object.values(data.trades);
-                                        console.log(`📈 Trades object localStorage: ${trades.length} trades`);
-                                    }
-                                    
-                                    if (trades.length > 0) {
-                                        const todayTrades = trades.filter(trade => {
-                                            const isToday = trade && trade.date === date;
-                                            const isClosed = trade.status === 'closed' || trade.status === 'completed';
-                                            console.log(`LocalStorage Trade: date=${trade.date}, status=${trade.status}, isToday=${isToday}, isClosed=${isClosed}`);
-                                            return isToday && isClosed;
+                                    if (data.trades && data.trades.length > 0) {
+                                        console.log(`🔄 Synchronisation ${data.trades.length} trades depuis localStorage`);
+                                        
+                                        // Synchroniser vers Firebase
+                                        const { set } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js');
+                                        await set(tradesRef, data.trades);
+                                        
+                                        // Recalculer avec les données synchronisées
+                                        const todayTrades = data.trades.filter(trade => {
+                                            return trade && trade.date === date && (trade.status === 'closed' || trade.status === 'completed');
                                         });
+                                        
                                         const dailyPnL = todayTrades.reduce((total, trade) => {
                                             return total + (parseFloat(trade.pnl) || 0);
                                         }, 0);
-                                        console.log(`✅ ${todayTrades.length} trades localStorage pour ${userId} le ${date}, P&L: ${dailyPnL}`);
+                                        
+                                        console.log(`✅ Après sync: ${todayTrades.length} trades pour ${date}, P&L: ${dailyPnL}`);
                                         return { dailyPnL, tradeCount: todayTrades.length };
                                     }
                                 } catch (e) {
-                                    console.warn(`❌ Erreur parsing localStorage ${key}:`, e);
+                                    console.error('Erreur parsing localStorage:', e);
                                 }
-                            } else {
-                                console.log(`❌ Pas de données localStorage dans: ${key}`);
                             }
                         }
                     }
+                    
                     return { dailyPnL: 0, tradeCount: 0 };
                 } catch (error) {
                     console.error(`Error getting stats for ${userId}:`, error);
@@ -1384,16 +1393,16 @@
             }
         }
         
-        // Enregistrer le service worker
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js')
-                    .then(registration => {
-                        console.log('✅ Service Worker enregistré:', registration.scope);
-                    })
-                    .catch(error => {
-                        console.error('❌ Erreur Service Worker:', error);
-                    });
+        // Enregistrer le service worker (fonctionne sur Netlify HTTPS)
+        if ('serviceWorker' in navigator && location.protocol === 'https:') {
+            window.addEventListener('load', async () => {
+                try {
+                    const registration = await navigator.serviceWorker.register('./sw.js');
+                    await navigator.serviceWorker.ready;
+                    console.log('✅ Service Worker enregistré sur Netlify:', registration.scope);
+                } catch (error) {
+                    console.error('❌ Erreur Service Worker:', error);
+                }
             });
         }
         
@@ -1737,29 +1746,23 @@
                     badge.classList.add('pulse-animation');
                 }
                 
-                // Gestionnaires d'événements avec vérifications
-                sendBtn.addEventListener('click', (e) => {
+                // Supprimer les anciens listeners
+                sendBtn.replaceWith(sendBtn.cloneNode(true));
+                const newSendBtn = document.getElementById('sendMessage');
+                
+                // Un seul listener pour l'envoi
+                newSendBtn.addEventListener('click', (e) => {
                     e.preventDefault();
                     e.stopPropagation();
                     console.log('🚀 Bouton envoi cliqué');
                     this.sendMessage();
                 });
                 
-                // Touch events pour mobile
-                sendBtn.addEventListener('touchstart', (e) => {
-                    e.preventDefault();
-                    sendBtn.style.transform = 'scale(0.95)';
-                });
+                // Supprimer les anciens listeners sur l'input
+                chatInput.replaceWith(chatInput.cloneNode(true));
+                const newChatInput = document.getElementById('chatInput');
                 
-                sendBtn.addEventListener('touchend', (e) => {
-                    e.preventDefault();
-                    setTimeout(() => {
-                        sendBtn.style.transform = 'scale(1)';
-                        this.sendMessage();
-                    }, 100);
-                });
-                
-                chatInput.addEventListener('keypress', (e) => {
+                newChatInput.addEventListener('keypress', (e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                         e.preventDefault();
                         this.sendMessage();
@@ -1835,13 +1838,14 @@
                 const sendBtn = document.getElementById('sendMessage');
                 const message = input.value.trim();
                 
-                if (!message) return;
+                if (!message || sendBtn.disabled) return;
                 
                 console.log('📤 Tentative envoi message:', message);
                 
-                // Désactiver le bouton
+                // Désactiver le bouton immédiatement
                 sendBtn.disabled = true;
                 sendBtn.style.opacity = '0.6';
+                input.value = ''; // Vider immédiatement
                 
                 const messageData = {
                     id: Date.now(),
@@ -1869,15 +1873,8 @@
                     
                     console.log('✅ Message envoyé avec succès:', result.key);
                     
-                    // Vider l'input seulement après succès
-                    input.value = '';
-                    
-                    // Envoyer notifications
-                    try {
-                        this.sendInstantPushNotification(messageData);
-                    } catch (notifError) {
-                        console.warn('Erreur notification:', notifError);
-                    }
+                    // PAS de notification pour ses propres messages
+                    console.log('✅ Message envoyé avec succès - pas de notification pour l\'expéditeur');
                     
                 } catch (error) {
                     console.error('❌ Erreur envoi Firebase:', error);
@@ -1935,9 +1932,9 @@
             async loadMessages() {
                 try {
                     if (window.firebaseDB) {
-                        const { ref, query, orderByChild, limitToLast, get } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js');
+                        const { ref, query, orderByKey, limitToLast, get } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js');
                         const messagesRef = ref(window.firebaseDB, 'vip_chat');
-                        const recentMessagesQuery = query(messagesRef, orderByChild('timestamp'), limitToLast(20));
+                        const recentMessagesQuery = query(messagesRef, orderByKey(), limitToLast(10));
                         const snapshot = await get(recentMessagesQuery);
                         
                         if (snapshot.exists()) {
@@ -1953,20 +1950,20 @@
             async setupRealtimeListener() {
                 try {
                     if (window.firebaseDB) {
-                        const { ref, query, orderByChild, limitToLast, onValue } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js');
+                        const { ref, query, orderByKey, limitToLast, onValue } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js');
                         const messagesRef = ref(window.firebaseDB, 'vip_chat');
-                        const recentMessagesQuery = query(messagesRef, orderByChild('timestamp'), limitToLast(20));
+                        const recentMessagesQuery = query(messagesRef, orderByKey(), limitToLast(10));
                         
                         onValue(recentMessagesQuery, (snapshot) => {
                             if (snapshot.exists()) {
                                 const messages = Object.values(snapshot.val());
                                 this.displayMessages(messages);
                                 
-                                // Notification instantanée pour mobile
+                                // Notification uniquement pour nouveaux messages
                                 const latestMessage = messages[messages.length - 1];
                                 if (latestMessage && latestMessage.userId !== this.currentUser) {
                                     const timeDiff = Date.now() - latestMessage.timestamp;
-                                    if (timeDiff < 3000) { // Message de moins de 3 secondes
+                                    if (timeDiff < 2000) { // Message de moins de 2 secondes
                                         this.showInstantMobileNotification(latestMessage);
                                     }
                                 }
@@ -2094,32 +2091,29 @@
             }
             
             showInstantNotification(title, body) {
-                // Notification immédiate sans conditions
-                if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-                    navigator.serviceWorker.controller.postMessage({
-                        type: 'SHOW_NOTIFICATION',
-                        title: title,
-                        body: body,
-                        icon: '/Misterpips.jpg'
-                    });
-                }
+                // UNE SEULE notification - éviter les doublons
+                const notificationsDisabled = localStorage.getItem('chatNotificationsDisabled') === 'true';
+                if (notificationsDisabled || !this.pushEnabled) return;
                 
-                // Notification directe en parallèle
+                // Utiliser un tag unique pour éviter les doublons
+                const uniqueTag = 'chat-' + this.currentUser;
+                
                 if ('Notification' in window && Notification.permission === 'granted') {
                     try {
                         const notification = new Notification(title, {
                             body: body,
                             icon: '/Misterpips.jpg',
-                            tag: 'instant-' + Date.now(),
-                            requireInteraction: true,
-                            vibrate: [200, 100, 200]
+                            tag: uniqueTag, // Tag unique pour remplacer les anciennes
+                            requireInteraction: false,
+                            vibrate: [100, 50, 100],
+                            silent: false
                         });
                         
                         setTimeout(() => {
                             try { notification.close(); } catch(e) {}
-                        }, 8000);
+                        }, 4000);
                     } catch (error) {
-                        console.error('Erreur notification directe:', error);
+                        console.error('Erreur notification:', error);
                     }
                 }
             }
@@ -2446,38 +2440,35 @@
         };
         
         VIPChat.prototype.showInstantMobileNotification = function(message) {
-            const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-            const isBackground = document.hidden || document.visibilityState === 'hidden';
+            const notificationsDisabled = localStorage.getItem('chatNotificationsDisabled') === 'true';
             const chatWindowOpen = document.getElementById('chatWindow').classList.contains('show');
             
-            // Notification immédiate pour mobile
-            if (isMobile || isBackground || !chatWindowOpen) {
-                const notificationBody = `${message.nickname}: ${message.message.substring(0, 50)}${message.message.length > 50 ? '...' : ''}`;
+            // Ne pas notifier si chat ouvert ou notifications désactivées
+            if (chatWindowOpen || notificationsDisabled || !this.pushEnabled) return;
+            
+            const notificationBody = `${message.nickname}: ${message.message.substring(0, 30)}${message.message.length > 30 ? '...' : ''}`;
+            
+            // UNE SEULE notification avec tag unique
+            if ('Notification' in window && Notification.permission === 'granted') {
+                const notification = new Notification('💬 Message VIP', {
+                    body: notificationBody,
+                    icon: '/Misterpips.jpg',
+                    tag: 'vip-chat-' + this.currentUser, // Tag unique pour éviter doublons
+                    requireInteraction: false,
+                    vibrate: [100, 50, 100],
+                    silent: false
+                });
                 
-                // Notification directe instantanée
-                if ('Notification' in window && Notification.permission === 'granted') {
-                    const notification = new Notification('💬 Message VIP', {
-                        body: notificationBody,
-                        icon: '/Misterpips.jpg',
-                        tag: 'instant-chat-' + Date.now(),
-                        requireInteraction: true,
-                        vibrate: isMobile ? [200, 100, 200] : undefined
-                    });
-                    
-                    notification.onclick = () => {
-                        window.focus();
-                        document.getElementById('chatWindow').classList.add('show');
-                        this.resetBadge();
-                        notification.close();
-                    };
-                    
-                    setTimeout(() => {
-                        try { notification.close(); } catch(e) {}
-                    }, 8000);
-                }
+                notification.onclick = () => {
+                    window.focus();
+                    document.getElementById('chatWindow').classList.add('show');
+                    this.resetBadge();
+                    notification.close();
+                };
                 
-                // Push notification pour app fermée
-                this.sendInstantPushNotification(message);
+                setTimeout(() => {
+                    try { notification.close(); } catch(e) {}
+                }, 4000);
             }
         };
         

@@ -50,7 +50,8 @@ function initMobileMenu() {
         
         // Fermer le menu quand on clique à l'extérieur
         document.addEventListener('click', (e) => {
-            if (!nav.contains(e.target) && navLinks.classList.contains('mobile-open')) {
+            const nav = navLinks.parentElement;
+            if (nav && !nav.contains(e.target) && navLinks.classList.contains('mobile-open')) {
                 navLinks.classList.remove('mobile-open');
                 mobileMenuBtn.innerHTML = '☰';
                 document.body.style.overflow = '';

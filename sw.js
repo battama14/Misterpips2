@@ -1,43 +1,23 @@
-// Service Worker Principal - Notifications Optimisées
-const CACHE_NAME = 'misterpips-v1';
-
-// Installation du service worker
-self.addEventListener('install', (event) => {
-    console.log('🔧 Service Worker installé');
+// Service Worker Ultra Simple
+self.addEventListener('install', () => {
     self.skipWaiting();
 });
 
-// Activation du service worker
-self.addEventListener('activate', (event) => {
-    console.log('✅ Service Worker activé');
-    event.waitUntil(clients.claim());
+self.addEventListener('activate', () => {
+    self.clients.claim();
 });
 
-// Gestion des messages pour notifications instantanées
 self.addEventListener('message', (event) => {
-    if (event.data && event.data.type === 'SHOW_NOTIFICATION') {
-        const { title, body, icon } = event.data;
+    if (event.data?.type === 'SHOW_NOTIFICATION') {
+        const { title, body } = event.data;
         
-        const options = {
+        self.registration.showNotification(title, {
             body: body,
-            icon: icon || '/Misterpips.jpg',
-            badge: '/Misterpips.jpg',
-            tag: 'instant-notification-' + Date.now(),
-            requireInteraction: false,
-            vibrate: [200, 100, 200],
-            timestamp: Date.now(),
-            actions: [
-                {
-                    action: 'open',
-                    title: 'Ouvrir',
-                    icon: '/Misterpips.jpg'
-                }
-            ]
-        };
-        
-        event.waitUntil(
-            self.registration.showNotification(title, options)
-        );
+            icon: 'Misterpips.jpg',
+            badge: 'Misterpips.jpg',
+            vibrate: [100, 50, 100],
+            requireInteraction: false
+        });
     }
 });
 
