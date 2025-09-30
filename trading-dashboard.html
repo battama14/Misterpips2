@@ -1268,31 +1268,33 @@
                             console.log(`❌ Pas de données Firebase pour: dashboards/${userId}/trades`);
                             
                             // Fallback: chercher dans localStorage et synchroniser
-                            const localData = localStorage.getItem('dashboardData');
-                            if (localData) {
-                                try {
-                                    const data = JSON.parse(localData);
-                                    if (data.trades && data.trades.length > 0) {
-                                        console.log(`🔄 Synchronisation ${data.trades.length} trades depuis localStorage`);
-                                        
-                                        // Synchroniser vers Firebase
-                                        const { set } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js');
-                                        await set(tradesRef, data.trades);
-                                        
-                                        // Recalculer avec les données synchronisées
-                                        const todayTrades = data.trades.filter(trade => {
-                                            return trade && trade.date === date && (trade.status === 'closed' || trade.status === 'completed');
-                                        });
-                                        
-                                        const dailyPnL = todayTrades.reduce((total, trade) => {
-                                            return total + (parseFloat(trade.pnl) || 0);
-                                        }, 0);
-                                        
-                                        console.log(`✅ Après sync: ${todayTrades.length} trades pour ${date}, P&L: ${dailyPnL}`);
-                                        return { dailyPnL, tradeCount: todayTrades.length };
+                            if (userId === this.currentUser) {
+                                const localData = localStorage.getItem('dashboardData');
+                                if (localData) {
+                                    try {
+                                        const data = JSON.parse(localData);
+                                        if (data.trades && data.trades.length > 0) {
+                                            console.log(`🔄 Synchronisation ${data.trades.length} trades depuis localStorage pour ${userId}`);
+                                            
+                                            // Synchroniser vers Firebase
+                                            const { set } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js');
+                                            await set(tradesRef, data.trades);
+                                            
+                                            // Recalculer avec les données synchronisées
+                                            const todayTrades = data.trades.filter(trade => {
+                                                return trade && trade.date === date && (trade.status === 'closed' || trade.status === 'completed');
+                                            });
+                                            
+                                            const dailyPnL = todayTrades.reduce((total, trade) => {
+                                                return total + (parseFloat(trade.pnl) || 0);
+                                            }, 0);
+                                            
+                                            console.log(`✅ Après sync: ${todayTrades.length} trades pour ${date}, P&L: ${dailyPnL}`);
+                                            return { dailyPnL, tradeCount: todayTrades.length };
+                                        }
+                                    } catch (e) {
+                                        console.error('Erreur parsing localStorage:', e);
                                     }
-                                } catch (e) {
-                                    console.error('Erreur parsing localStorage:', e);
                                 }
                             }
                         }
@@ -1351,11 +1353,16 @@
                 const rankingList = document.getElementById('rankingList');
                 
                 console.log('Displaying ranking:', rankings);
+                console.log('Current user ID:', this.currentUser);
                 
                 if (rankings.length === 0) {
                     rankingList.innerHTML = '<div class="ranking-loading">Aucune donnée aujourd\'hui</div>';
                     return;
                 }
+                
+                // Vérifier si l'utilisateur actuel est dans le classement
+                const currentUserInRanking = rankings.find(trader => trader.userId === this.currentUser);
+                console.log('Current user in ranking:', currentUserInRanking);
                 
                 let html = '';
                 rankings.forEach((trader, index) => {
@@ -1406,9 +1413,47 @@
             });
         }
         
+        // Créer l'utilisateur VIP et synchroniser les trades
+        async function ensureUserVIPAndSync() {
+            try {
+                const currentUser = sessionStorage.getItem('firebaseUID');
+                const userEmail = sessionStorage.getItem('userEmail');
+                if (!currentUser || !userEmail || !window.firebaseDB) return;
+                
+                const { ref, set, get } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js');
+                
+                // 1. Créer/mettre à jour l'utilisateur VIP
+                const userRef = ref(window.firebaseDB, `users/${currentUser}`);
+                await set(userRef, {
+                    email: userEmail,
+                    isVIP: true,
+                    plan: 'VIP',
+                    status: 'active',
+                    lastLogin: new Date().toISOString(),
+                    createdAt: new Date().toISOString(),
+                    autoCreated: true
+                });
+                console.log(`✅ Utilisateur VIP créé/mis à jour: ${userEmail}`);
+                
+                // 2. Synchroniser les trades
+                const localData = localStorage.getItem('dashboardData');
+                if (localData) {
+                    const data = JSON.parse(localData);
+                    if (data.trades && data.trades.length > 0) {
+                        const tradesRef = ref(window.firebaseDB, `dashboards/${currentUser}/trades`);
+                        await set(tradesRef, data.trades);
+                        console.log(`✅ Synchronisation: ${data.trades.length} trades pour ${currentUser}`);
+                    }
+                }
+            } catch (error) {
+                console.error('Erreur création utilisateur VIP:', error);
+            }
+        }
+        
         // Initialiser le classement VIP quand la page est chargée
         document.addEventListener('DOMContentLoaded', () => {
-            setTimeout(() => {
+            setTimeout(async () => {
+                await ensureUserVIPAndSync();
                 new VIPRanking();
                 new VIPChat();
                 
