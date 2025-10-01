@@ -1,0 +1,11 @@
+# Redirection principale
+/ /index-fixed.html 200
+
+# Redirections des anciennes pages
+/index.html /index-fixed.html 301
+
+# Headers pour les APIs
+/.netlify/functions/* 200
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Headers: Content-Type
+  Access-Control-Allow-Methods: GET, POST, OPTIONS

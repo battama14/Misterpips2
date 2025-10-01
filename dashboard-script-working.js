@@ -452,10 +452,11 @@ class SimpleTradingDashboard {
         this.settings = { capital, riskPerTrade, dailyTarget, weeklyTarget, monthlyTarget, yearlyTarget };
         this.accounts[this.currentAccount].capital = capital;
         this.saveData();
-        this.updateStats();
-        this.updateAccountDisplay();
-        this.renderCalendar();
         this.closeModal();
+        
+        // Mise à jour COMPLÈTE de toutes les parties
+        this.fullDashboardUpdate();
+        
         this.showNotification('Paramètres sauvegardés!');
     }
 
@@ -562,18 +563,9 @@ class SimpleTradingDashboard {
         this.trades.push(trade);
         this.saveData();
         this.closeModal();
-        this.updateStats();
-        this.renderTradesTable();
-        this.renderCalendar();
         
-        // Détruire et recréer tous les graphiques
-        Object.values(Chart.instances).forEach(chart => chart.destroy());
-        setTimeout(() => {
-            this.initCharts();
-            this.initICTAnalysis();
-            this.initGauge();
-            this.updateCalendarStats();
-        }, 100);
+        // Mise à jour COMPLÈTE de toutes les parties
+        this.fullDashboardUpdate();
         
         this.showNotification('Trade enregistré avec succès!');
     }
@@ -608,6 +600,9 @@ class SimpleTradingDashboard {
                         `<button class="btn-small btn-primary" onclick="dashboard.editTrade(${this.trades.indexOf(trade)})" style="margin-right: 5px;">Modifier</button><button class="btn-small btn-danger" onclick="dashboard.quickCloseTrade(${this.trades.indexOf(trade)})">Clôturer</button>` : 
                         '-'
                     }
+                </td>
+                <td>
+                    <button class="btn-small btn-warning" onclick="dashboard.editClosedTrade(${this.trades.indexOf(trade)})" style="font-size: 11px;">✏️ Modifier</button>
                 </td>
             `;
             tbody.appendChild(row);
@@ -686,11 +681,146 @@ class SimpleTradingDashboard {
         
         this.saveData();
         this.closeModal();
-        this.updateStats();
-        this.renderTradesTable();
-        this.renderCalendar();
+        
+        // Mise à jour COMPLÈTE de toutes les parties
+        this.fullDashboardUpdate();
         
         this.showNotification('Trade modifié avec succès!');
+    }
+
+    editClosedTrade(index) {
+        const trade = this.trades[index];
+        if (!trade) return;
+        
+        const modalContent = document.getElementById('modalContent');
+        if (!modalContent) return;
+        
+        modalContent.innerHTML = `
+            <h2>✏️ Modifier le Trade</h2>
+            <div class="trade-form">
+                <div class="form-group">
+                    <label>Date:</label>
+                    <input type="date" id="editTradeDate" value="${trade.date}">
+                </div>
+                <div class="form-group">
+                    <label>Instrument:</label>
+                    <select id="editCurrency">
+                        <option value="EUR/USD" ${trade.currency === 'EUR/USD' ? 'selected' : ''}>EUR/USD</option>
+                        <option value="GBP/USD" ${trade.currency === 'GBP/USD' ? 'selected' : ''}>GBP/USD</option>
+                        <option value="USD/JPY" ${trade.currency === 'USD/JPY' ? 'selected' : ''}>USD/JPY</option>
+                        <option value="AUD/USD" ${trade.currency === 'AUD/USD' ? 'selected' : ''}>AUD/USD</option>
+                        <option value="USD/CAD" ${trade.currency === 'USD/CAD' ? 'selected' : ''}>USD/CAD</option>
+                        <option value="XAU/USD" ${trade.currency === 'XAU/USD' ? 'selected' : ''}>XAU/USD (Or)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Point d'entrée:</label>
+                    <input type="number" id="editEntryPoint" step="0.00001" value="${trade.entryPoint}">
+                </div>
+                <div class="form-group">
+                    <label>Stop Loss:</label>
+                    <input type="number" id="editStopLoss" step="0.00001" value="${trade.stopLoss}">
+                </div>
+                <div class="form-group">
+                    <label>Take Profit:</label>
+                    <input type="number" id="editTakeProfit" step="0.00001" value="${trade.takeProfit}">
+                </div>
+                <div class="form-group">
+                    <label>Lot:</label>
+                    <input type="number" id="editLotSize" step="0.01" value="${trade.lotSize}">
+                </div>
+                ${trade.status === 'closed' ? `
+                <div class="form-group">
+                    <label>Résultat:</label>
+                    <select id="editResult" onchange="dashboard.recalculatePnLOnEdit()">
+                        <option value="TP" ${trade.result === 'TP' ? 'selected' : ''}>Take Profit (TP)</option>
+                        <option value="SL" ${trade.result === 'SL' ? 'selected' : ''}>Stop Loss (SL)</option>
+                        <option value="BE" ${trade.result === 'BE' ? 'selected' : ''}>Break Even (BE)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>P&L ($):</label>
+                    <input type="number" id="editPnL" step="0.01" value="${trade.pnl || 0}" readonly style="background: rgba(255,255,255,0.1);">
+                    <small style="color: #888; font-size: 12px;">Calculé automatiquement selon le résultat</small>
+                </div>
+                ` : ''}
+                <div class="form-buttons">
+                    <button class="btn-submit" onclick="dashboard.saveEditedClosedTrade(${index})">Sauvegarder</button>
+                    <button class="btn-danger" onclick="dashboard.deleteTrade(${index})" style="margin-left: 10px;">🗑️ Supprimer</button>
+                    <button class="btn-secondary" onclick="dashboard.closeModal()">Annuler</button>
+                </div>
+            </div>
+        `;
+        
+        this.showModal();
+    }
+
+    saveEditedClosedTrade(index) {
+        const trade = this.trades[index];
+        if (!trade) return;
+        
+        const date = document.getElementById('editTradeDate')?.value;
+        const currency = document.getElementById('editCurrency')?.value;
+        const entryPoint = parseFloat(document.getElementById('editEntryPoint')?.value);
+        const stopLoss = parseFloat(document.getElementById('editStopLoss')?.value);
+        const takeProfit = parseFloat(document.getElementById('editTakeProfit')?.value);
+        const lotSize = parseFloat(document.getElementById('editLotSize')?.value);
+        const result = document.getElementById('editResult')?.value;
+        const pnl = parseFloat(document.getElementById('editPnL')?.value);
+
+        if (!date || !currency || !entryPoint || !stopLoss || !takeProfit || !lotSize) {
+            alert('Veuillez remplir tous les champs obligatoires');
+            return;
+        }
+
+        // Mettre à jour le trade
+        trade.date = date;
+        trade.currency = currency;
+        trade.entryPoint = entryPoint;
+        trade.stopLoss = stopLoss;
+        trade.takeProfit = takeProfit;
+        trade.lotSize = lotSize;
+        if (result) {
+            trade.result = result;
+            // RECALCULER automatiquement le P&L selon le nouveau résultat
+            if (result === 'TP') {
+                trade.closePrice = takeProfit;
+            } else if (result === 'SL') {
+                trade.closePrice = stopLoss;
+            } else if (result === 'BE') {
+                trade.closePrice = entryPoint;
+            }
+            // Recalculer le P&L avec la nouvelle closePrice
+            trade.pnl = this.calculatePnL(trade);
+        } else if (!isNaN(pnl)) {
+            trade.pnl = pnl;
+        }
+        trade.modifiedAt = Date.now();
+        
+        this.saveData();
+        this.closeModal();
+        
+        // SOLUTION RADICALE : Recharger la page pour forcer la mise à jour
+        this.showNotification('Trade modifié ! Rechargement...');
+        setTimeout(() => {
+            window.location.reload();
+        }, 1000);
+    }
+
+    deleteTrade(index) {
+        const trade = this.trades[index];
+        if (!trade) return;
+        
+        if (confirm(`Supprimer définitivement le trade ${trade.currency} du ${trade.date} ?`)) {
+            this.trades.splice(index, 1);
+            this.saveData();
+            this.closeModal();
+            
+            // Mise à jour COMPLÈTE de toutes les parties
+            this.fullDashboardUpdate();
+            
+            this.showNotification('Trade supprimé!');
+        }
     }
 
     quickCloseTrade(index) {
@@ -721,20 +851,10 @@ class SimpleTradingDashboard {
         trade.pnl = this.calculatePnL(trade);
         
         this.saveData();
-        this.updateStats();
-        this.renderTradesTable();
-        this.renderCalendar();
-        
-        // Détruire et recréer tous les graphiques
-        Object.values(Chart.instances).forEach(chart => chart.destroy());
-        setTimeout(() => {
-            this.initCharts();
-            this.initCorrelationMatrix();
-            this.initGauge();
-            this.updateCalendarStats();
-        }, 100);
-        
         this.closeModal();
+        
+        // Mise à jour COMPLÈTE de toutes les parties
+        this.fullDashboardUpdate();
         
         this.showNotification(`Trade ${trade.currency} clôturé en ${result}`);
     }
@@ -824,6 +944,7 @@ class SimpleTradingDashboard {
         
         if (!calendarGrid || !monthYear) return;
         
+        // FORCER le re-rendu complet
         const year = this.currentCalendarDate.getFullYear();
         const month = this.currentCalendarDate.getMonth();
         
@@ -833,25 +954,26 @@ class SimpleTradingDashboard {
         }).format(this.currentCalendarDate);
         
         const firstDay = new Date(year, month, 1);
-        const lastDay = new Date(year, month + 1, 0);
         const startDate = new Date(firstDay);
         startDate.setDate(startDate.getDate() - firstDay.getDay());
         
         calendarGrid.innerHTML = '';
         
-        // En-têtes des jours
-        const dayHeaders = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
-        dayHeaders.forEach(day => {
+        // En-têtes
+        ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'].forEach(day => {
             const dayHeader = document.createElement('div');
             dayHeader.className = 'calendar-day-header';
             dayHeader.textContent = day;
             calendarGrid.appendChild(dayHeader);
         });
         
-        const initialCapital = this.accounts[this.currentAccount]?.capital || this.settings.capital;
-        const dailyTargetAmount = (initialCapital * this.settings.dailyTarget / 100);
+        // Recalculer capital
+        const closedTrades = this.trades.filter(t => t.status === 'closed');
+        const totalPnL = closedTrades.reduce((sum, t) => sum + parseFloat(t.pnl || 0), 0);
+        const currentCapital = (this.accounts[this.currentAccount]?.capital || this.settings.capital) + totalPnL;
+        const dailyTargetAmount = (currentCapital * this.settings.dailyTarget / 100);
         
-        // Jours du calendrier
+        // Jours
         for (let i = 0; i < 42; i++) {
             const currentDate = new Date(startDate);
             currentDate.setDate(startDate.getDate() + i);
@@ -866,10 +988,10 @@ class SimpleTradingDashboard {
             const dateStr = currentDate.getFullYear() + '-' + 
                 String(currentDate.getMonth() + 1).padStart(2, '0') + '-' + 
                 String(currentDate.getDate()).padStart(2, '0');
-            const dayTrades = this.trades.filter(t => t.date === dateStr);
+            
+            const dayTrades = this.trades.filter(t => t.date === dateStr && t.status === 'closed');
             const dayPnL = dayTrades.reduce((sum, t) => sum + parseFloat(t.pnl || 0), 0);
             
-            // Indicateur d'objectif atteint
             const targetReached = dayPnL >= dailyTargetAmount;
             const targetIcon = targetReached ? '✅' : (dayPnL > 0 ? '🟡' : (dayPnL < 0 ? '🔴' : ''));
             
@@ -893,8 +1015,6 @@ class SimpleTradingDashboard {
             
             calendarGrid.appendChild(dayElement);
         }
-        
-        this.updateCalendarStats();
     }
     
     updateCalendarStats() {
@@ -1075,24 +1195,391 @@ class SimpleTradingDashboard {
         }, 3000);
     }
 
+    // Fonction de mise à jour COMPLÈTE de tout le dashboard
+    async fullDashboardUpdate() {
+        console.log('🔄 Mise à jour complète du dashboard...');
+        
+        // 1. FORCER la sauvegarde Firebase AVANT tout
+        await this.saveData();
+        
+        // 2. FORCER la mise à jour IMMÉDIATE de tous les éléments
+        this.forceUpdateAllElements();
+        
+        // 3. Statistiques principales (header)
+        this.updateStats();
+        
+        // 4. Tableau des trades
+        this.renderTradesTable();
+        
+        // 5. Calendrier avec stats - FORCER le rendu
+        this.renderCalendar();
+        
+        // 6. Affichage des comptes
+        this.updateAccountDisplay();
+        
+        // 7. Détruire tous les graphiques existants
+        if (typeof Chart !== 'undefined' && Chart.instances) {
+            Object.values(Chart.instances).forEach(chart => {
+                try {
+                    chart.destroy();
+                } catch (e) {
+                    console.warn('Erreur destruction graphique:', e);
+                }
+            });
+        }
+        
+        // 8. Recréer tous les graphiques
+        setTimeout(() => {
+            this.initCharts();
+            this.initICTAnalysis();
+            this.initGauge();
+        }, 100);
+        
+        // 9. FORCER toutes les mises à jour après un délai
+        setTimeout(() => {
+            this.forceUpdateAllElements();
+            this.forceVIPRankingUpdate();
+            
+            // 10. Si rien ne fonctionne, recharger la page
+            setTimeout(() => {
+                if (confirm('Les données ne se mettent pas à jour correctement. Recharger la page ?')) {
+                    window.location.reload();
+                }
+            }, 2000);
+            
+            console.log('✅ Mise à jour complète terminée');
+        }, 500);
+    }
+    
+    // FORCER la mise à jour de TOUS les éléments DOM
+    forceUpdateAllElements() {
+        console.log('🔧 Forçage mise à jour tous éléments...');
+        
+        // Calculer toutes les données nécessaires
+        const closedTrades = this.trades.filter(t => t.status === 'closed');
+        const totalPnL = closedTrades.reduce((sum, t) => sum + parseFloat(t.pnl || 0), 0);
+        const initialCapital = this.accounts[this.currentAccount]?.capital || this.settings.capital;
+        const currentCapital = initialCapital + totalPnL;
+        const winRate = closedTrades.length > 0 ? 
+            (closedTrades.filter(t => parseFloat(t.pnl || 0) > 0).length / closedTrades.length * 100).toFixed(1) : 0;
+        
+        // Dates pour les calculs
+        const today = new Date();
+        const todayStr = today.getFullYear() + '-' + 
+            String(today.getMonth() + 1).padStart(2, '0') + '-' + 
+            String(today.getDate()).padStart(2, '0');
+        
+        // Trades d'aujourd'hui
+        const todayTrades = this.trades.filter(t => t.date === todayStr && t.status === 'closed');
+        const todayPnL = todayTrades.reduce((sum, t) => sum + parseFloat(t.pnl || 0), 0);
+        
+        // Objectifs
+        const dailyTarget = (currentCapital * this.settings.dailyTarget / 100);
+        const weeklyTarget = (currentCapital * this.settings.weeklyTarget / 100);
+        const monthlyTarget = (currentCapital * this.settings.monthlyTarget / 100);
+        const yearlyTarget = (currentCapital * this.settings.yearlyTarget / 100);
+        
+        // Progrès
+        const dailyProgress = dailyTarget > 0 ? Math.min((todayPnL / dailyTarget) * 100, 100) : 0;
+        
+        // FORCER la mise à jour de TOUS les éléments
+        const updates = {
+            // Header stats
+            'capital': `$${currentCapital.toFixed(2)}`,
+            'winRate': `${winRate}%`,
+            'totalPnL': `$${totalPnL.toFixed(2)}`,
+            'openTrades': this.trades.filter(t => t.status === 'open').length,
+            'totalTrades': this.trades.length,
+            
+            // Objectifs - Montants
+            'dailyTarget': dailyTarget.toFixed(0),
+            'weeklyTarget': weeklyTarget.toFixed(0),
+            'monthlyTarget': monthlyTarget.toFixed(0),
+            'yearlyTarget': yearlyTarget.toFixed(0),
+            
+            // Objectifs - Pourcentages
+            'dailyTargetPercent': `${this.settings.dailyTarget}%`,
+            'weeklyTargetPercent': `${this.settings.weeklyTarget}%`,
+            'monthlyTargetPercent': `${this.settings.monthlyTarget}%`,
+            'yearlyTargetPercent': `${this.settings.yearlyTarget}%`,
+            
+            // Progrès
+            'dailyProgress': `${dailyProgress.toFixed(1)}%`,
+            
+            // Rendement
+            'yearReturn': `${((totalPnL / initialCapital) * 100).toFixed(1)}%`
+        };
+        
+        // Appliquer TOUTES les mises à jour
+        Object.entries(updates).forEach(([id, value]) => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.textContent = value;
+                // Appliquer les classes de couleur
+                if (id === 'totalPnL' || id === 'capital') {
+                    element.className = totalPnL >= 0 ? 'positive' : 'negative';
+                }
+            }
+        });
+        
+        // FORCER les barres de progression
+        const progressBar = document.getElementById('dailyProgressBar');
+        if (progressBar) {
+            progressBar.style.width = `${Math.min(dailyProgress, 100)}%`;
+            progressBar.style.background = dailyProgress >= 100 ? 
+                'linear-gradient(90deg, #4ecdc4, #44a08d)' : 
+                'linear-gradient(90deg, #ff6b6b, #ee5a52)';
+        }
+        
+        console.log('✅ Tous les éléments forcés à jour');
+    }
+    
+    // Recalculer le P&L en temps réel lors de l'édition
+    recalculatePnLOnEdit() {
+        const entryPoint = parseFloat(document.getElementById('editEntryPoint')?.value);
+        const stopLoss = parseFloat(document.getElementById('editStopLoss')?.value);
+        const takeProfit = parseFloat(document.getElementById('editTakeProfit')?.value);
+        const lotSize = parseFloat(document.getElementById('editLotSize')?.value);
+        const currency = document.getElementById('editCurrency')?.value;
+        const result = document.getElementById('editResult')?.value;
+        const pnlInput = document.getElementById('editPnL');
+        
+        if (!entryPoint || !stopLoss || !takeProfit || !lotSize || !currency || !result || !pnlInput) {
+            return;
+        }
+        
+        // Créer un objet trade temporaire pour le calcul
+        const tempTrade = {
+            entryPoint,
+            stopLoss,
+            takeProfit,
+            lotSize,
+            currency,
+            result
+        };
+        
+        // Déterminer le prix de clôture selon le résultat
+        if (result === 'TP') {
+            tempTrade.closePrice = takeProfit;
+        } else if (result === 'SL') {
+            tempTrade.closePrice = stopLoss;
+        } else if (result === 'BE') {
+            tempTrade.closePrice = entryPoint;
+        }
+        
+        // Calculer le nouveau P&L
+        const newPnL = this.calculatePnL(tempTrade);
+        
+        // Mettre à jour le champ P&L
+        pnlInput.value = newPnL.toFixed(2);
+        
+        // Changer la couleur selon le résultat
+        if (newPnL > 0) {
+            pnlInput.style.color = '#4ecdc4';
+        } else if (newPnL < 0) {
+            pnlInput.style.color = '#ff6b6b';
+        } else {
+            pnlInput.style.color = '#ffc107';
+        }
+        
+        console.log(`💰 P&L recalculé: ${result} = $${newPnL.toFixed(2)}`);
+    }
+    
+    // Forcer la mise à jour du classement VIP
+    forceVIPRankingUpdate() {
+        try {
+            // Déclencher la mise à jour du classement VIP s'il existe
+            if (window.vipRanking && typeof window.vipRanking.loadRanking === 'function') {
+                console.log('🏆 Mise à jour du classement VIP...');
+                setTimeout(() => {
+                    window.vipRanking.loadRanking();
+                }, 500);
+            }
+            
+            // Synchroniser les trades vers Firebase pour le classement
+            if (window.firebaseDB && this.trades.length > 0) {
+                this.syncTradesToFirebaseForRanking();
+            }
+            
+        } catch (error) {
+            console.error('Erreur mise à jour classement VIP:', error);
+        }
+    }
+    
+    // Synchroniser spécifiquement pour le classement
+    async syncTradesToFirebaseForRanking() {
+        try {
+            if (!window.firebaseDB) return;
+            
+            const { ref, set } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js');
+            
+            // Synchroniser vers plusieurs emplacements pour compatibilité
+            const paths = [
+                `dashboards/${this.currentUser}/trades`,
+                `trading_data/${this.currentUser}/trades`,
+                `users/${this.currentUser}/trades`
+            ];
+            
+            for (const path of paths) {
+                const tradesRef = ref(window.firebaseDB, path);
+                await set(tradesRef, this.trades);
+            }
+            
+            // Mettre à jour les stats utilisateur pour le classement
+            const today = new Date().toISOString().split('T')[0];
+            const todayTrades = this.trades.filter(trade => 
+                trade && trade.date === today && (trade.status === 'closed' || trade.status === 'completed')
+            );
+            const dailyPnL = todayTrades.reduce((total, trade) => total + (parseFloat(trade.pnl) || 0), 0);
+            
+            const statsRef = ref(window.firebaseDB, `users/${this.currentUser}/stats`);
+            await set(statsRef, {
+                totalTrades: this.trades.length,
+                todayTrades: todayTrades.length,
+                dailyPnL: dailyPnL,
+                lastUpdated: new Date().toISOString()
+            });
+            
+            console.log('✅ Trades synchronisés pour le classement');
+            
+        } catch (error) {
+            console.error('Erreur sync classement:', error);
+        }
+    }
+    
+    // Fonction pour forcer la mise à jour des barres de progression
+    updateProgressBars() {
+        const year = new Date().getFullYear();
+        const month = new Date().getMonth();
+        const today = new Date();
+        
+        // Calculer le capital actuel
+        const closedTrades = this.trades.filter(t => t.status === 'closed');
+        const totalPnL = closedTrades.reduce((sum, t) => sum + parseFloat(t.pnl || 0), 0);
+        const initialCapital = this.accounts[this.currentAccount]?.capital || this.settings.capital;
+        const currentCapital = initialCapital + totalPnL;
+        
+        // Objectifs en dollars
+        const dailyTarget = (currentCapital * this.settings.dailyTarget / 100);
+        const weeklyTarget = (currentCapital * this.settings.weeklyTarget / 100);
+        const monthlyTarget = (currentCapital * this.settings.monthlyTarget / 100);
+        const yearlyTarget = (currentCapital * this.settings.yearlyTarget / 100);
+        
+        // P&L aujourd'hui
+        const todayStr = today.getFullYear() + '-' + 
+            String(today.getMonth() + 1).padStart(2, '0') + '-' + 
+            String(today.getDate()).padStart(2, '0');
+        const todayTrades = this.trades.filter(t => t.date === todayStr && t.status === 'closed');
+        const todayPnL = todayTrades.reduce((sum, t) => sum + parseFloat(t.pnl || 0), 0);
+        
+        // P&L de la semaine
+        const weekStart = new Date(today);
+        const dayOfWeek = today.getDay();
+        const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+        weekStart.setDate(today.getDate() - daysToMonday);
+        weekStart.setHours(0, 0, 0, 0);
+        
+        const weekEnd = new Date(today);
+        weekEnd.setHours(23, 59, 59, 999);
+        
+        const weekTrades = this.trades.filter(t => {
+            const tradeDate = new Date(t.date + 'T00:00:00');
+            return tradeDate >= weekStart && tradeDate <= weekEnd && t.status === 'closed';
+        });
+        const weekPnL = weekTrades.reduce((sum, t) => sum + parseFloat(t.pnl || 0), 0);
+        
+        // P&L du mois
+        const currentMonth = today.getMonth();
+        const currentYear = today.getFullYear();
+        const monthTrades = this.trades.filter(t => {
+            const tradeDate = new Date(t.date + 'T00:00:00');
+            return tradeDate.getFullYear() === currentYear && 
+                   tradeDate.getMonth() === currentMonth && 
+                   t.status === 'closed';
+        });
+        const monthPnL = monthTrades.reduce((sum, t) => sum + parseFloat(t.pnl || 0), 0);
+        
+        // P&L de l'année
+        const yearTrades = this.trades.filter(t => {
+            const tradeDate = new Date(t.date + 'T00:00:00');
+            return tradeDate.getFullYear() === currentYear && t.status === 'closed';
+        });
+        const yearPnL = yearTrades.reduce((sum, t) => sum + parseFloat(t.pnl || 0), 0);
+        
+        // Calcul des progrès
+        const dailyProgress = dailyTarget > 0 ? Math.min((todayPnL / dailyTarget) * 100, 100) : 0;
+        const weekProgress = weeklyTarget > 0 ? Math.min((weekPnL / weeklyTarget) * 100, 100) : 0;
+        const monthProgress = monthlyTarget > 0 ? Math.min((monthPnL / monthlyTarget) * 100, 100) : 0;
+        const yearProgress = yearlyTarget > 0 ? Math.min((yearPnL / yearlyTarget) * 100, 100) : 0;
+        
+        // Mise à jour des barres de progression
+        const progressBars = {
+            'dailyProgressBar': dailyProgress,
+            'weeklyProgressBar': weekProgress,
+            'monthlyProgressBar': monthProgress,
+            'yearlyProgressBar': yearProgress
+        };
+        
+        Object.entries(progressBars).forEach(([id, progress]) => {
+            const bar = document.getElementById(id);
+            if (bar) {
+                bar.style.width = `${Math.min(progress, 100)}%`;
+                bar.style.transition = 'width 0.5s ease';
+                
+                // Couleur selon le progrès
+                if (progress >= 100) {
+                    bar.style.background = 'linear-gradient(90deg, #4ecdc4, #44a08d)';
+                    bar.classList.add('completed');
+                } else if (progress >= 75) {
+                    bar.style.background = 'linear-gradient(90deg, #4ecdc4, #5b86e5)';
+                } else if (progress >= 50) {
+                    bar.style.background = 'linear-gradient(90deg, #ffc107, #ff8c00)';
+                } else {
+                    bar.style.background = 'linear-gradient(90deg, #ff6b6b, #ee5a52)';
+                }
+            }
+        });
+        
+        // Mise à jour des valeurs textuelles ET des objectifs
+        this.updateElement('dailyProgress', `${dailyProgress.toFixed(1)}%`);
+        this.updateElement('weekProgress', `${weekProgress.toFixed(1)}%`);
+        this.updateElement('monthProgress', `${monthProgress.toFixed(1)}%`);
+        this.updateElement('yearProgress', `${yearProgress.toFixed(1)}%`);
+        
+        // FORCER la mise à jour des montants d'objectifs
+        this.updateElement('dailyTarget', dailyTarget.toFixed(0));
+        this.updateElement('weeklyTarget', weeklyTarget.toFixed(0));
+        this.updateElement('monthlyTarget', monthlyTarget.toFixed(0));
+        this.updateElement('yearlyTarget', yearlyTarget.toFixed(0));
+        
+        // FORCER la mise à jour des pourcentages d'objectifs
+        this.updateElement('dailyTargetPercent', `${this.settings.dailyTarget}%`);
+        this.updateElement('weeklyTargetPercent', `${this.settings.weeklyTarget}%`);
+        this.updateElement('monthlyTargetPercent', `${this.settings.monthlyTarget}%`);
+        this.updateElement('yearlyTargetPercent', `${this.settings.yearlyTarget}%`);
+        
+        // FORCER la mise à jour du rendement annuel
+        const yearReturn = ((totalPnL / initialCapital) * 100).toFixed(1);
+        this.updateElement('yearReturn', `${yearReturn}%`);
+        
+        console.log('📊 Barres de progression mises à jour:', {
+            daily: dailyProgress.toFixed(1) + '%',
+            weekly: weekProgress.toFixed(1) + '%',
+            monthly: monthProgress.toFixed(1) + '%',
+            yearly: yearProgress.toFixed(1) + '%',
+            targets: { daily: dailyTarget, weekly: weeklyTarget, monthly: monthlyTarget, yearly: yearlyTarget }
+        });
+    }
+
     resetAllData() {
         if (confirm('⚠️ ATTENTION: Cette action supprimera TOUS vos trades et données. Êtes-vous sûr ?')) {
             this.trades = [];
             this.settings = { capital: 1000, riskPerTrade: 2, dailyTarget: 1, weeklyTarget: 3, monthlyTarget: 15, yearlyTarget: 200 };
             this.accounts[this.currentAccount].capital = 1000;
             this.saveData();
-            this.updateStats();
-            this.renderTradesTable();
-            this.renderCalendar();
             
-            // Détruire et recréer tous les graphiques
-            Object.values(Chart.instances).forEach(chart => chart.destroy());
-            setTimeout(() => {
-                this.initCharts();
-                this.initCorrelationMatrix();
-                this.initGauge();
-                this.updateCalendarStats();
-            }, 100);
+            // Mise à jour COMPLÈTE de toutes les parties
+            this.fullDashboardUpdate();
             
             this.showNotification('Toutes les données ont été supprimées');
         }
@@ -1143,19 +1630,9 @@ class SimpleTradingDashboard {
         }
         
         this.saveData();
-        this.updateStats();
-        this.renderTradesTable();
-        this.renderCalendar();
-        this.updateAccountDisplay();
         
-        // Recréer les graphiques
-        Object.values(Chart.instances).forEach(chart => chart.destroy());
-        setTimeout(() => {
-            this.initCharts();
-            this.initCorrelationMatrix();
-            this.initGauge();
-            this.updateCalendarStats();
-        }, 100);
+        // Mise à jour COMPLÈTE de toutes les parties
+        this.fullDashboardUpdate();
         
         this.showNotification(`Compte changé: ${this.accounts[accountId]?.name || accountId}`);
     }
