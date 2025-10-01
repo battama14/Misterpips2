@@ -65,6 +65,28 @@
 </head>
 <body>
     <script>
+        // Détection mobile et redirection automatique
+        function isMobileDevice() {
+            return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+                   (window.innerWidth <= 768 && window.innerHeight <= 1024);
+        }
+        
+        // Redirection vers version mobile si nécessaire
+        if (isMobileDevice() && !window.location.href.includes('mobile-dashboard.html')) {
+            // Vérifier si l'utilisateur est connecté avant de rediriger
+            const checkAuthAndRedirect = () => {
+                const firebaseUID = sessionStorage.getItem('firebaseUID');
+                if (firebaseUID) {
+                    console.log('📱 Appareil mobile détecté - Redirection vers version mobile');
+                    window.location.href = 'mobile-dashboard.html';
+                }
+            };
+            
+            // Vérifier immédiatement et après un délai
+            checkAuthAndRedirect();
+            setTimeout(checkAuthAndRedirect, 1000);
+        }
+        
         // Initialisation avec utilisateur authentifié
         window.addEventListener('DOMContentLoaded', function() {
             // Attendre l'authentification Firebase
@@ -76,8 +98,18 @@
                     sessionStorage.setItem('currentUser', firebaseUID);
                     sessionStorage.setItem('authenticated', 'true');
                     
-                    // Afficher l'email de l'utilisateur
-                    document.querySelector('header h1').innerHTML = `Dashboard Trading <span style="font-size: 0.6em; opacity: 0.7;">- ${userEmail}</span>`;
+                    // Redirection mobile après authentification
+                    if (isMobileDevice() && !window.location.href.includes('mobile-dashboard.html')) {
+                        console.log('📱 Redirection mobile après authentification');
+                        window.location.href = 'mobile-dashboard.html';
+                        return;
+                    }
+                    
+                    // Afficher l'email de l'utilisateur (version PC uniquement)
+                    const headerH1 = document.querySelector('header h1');
+                    if (headerH1) {
+                        headerH1.innerHTML = `Dashboard Trading <span style="font-size: 0.6em; opacity: 0.7;">- ${userEmail}</span>`;
+                    }
                     
                     clearInterval(checkAuth);
                 }

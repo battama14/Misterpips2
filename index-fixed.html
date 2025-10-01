@@ -344,12 +344,24 @@
                 
                 await new Promise(resolve => setTimeout(resolve, 1000));
                 
+                // Détection mobile pour redirection
+                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+                                (window.innerWidth <= 768 && window.innerHeight <= 1024);
+                
                 if (isFirstLogin) {
                     showCustomPopup('FÉLICITATIONS ! Bienvenue dans la famille VIP - Misterpips', () => {
-                        window.location.href = 'vip-space.html';
+                        if (isMobile) {
+                            window.location.href = 'mobile-dashboard.html';
+                        } else {
+                            window.location.href = 'vip-space.html';
+                        }
                     });
                 } else {
-                    window.location.href = 'vip-space.html';
+                    if (isMobile) {
+                        window.location.href = 'mobile-dashboard.html';
+                    } else {
+                        window.location.href = 'vip-space.html';
+                    }
                 }
             } catch (error) {
                 console.error('Erreur connexion:', error);
